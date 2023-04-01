@@ -1,2 +1,4 @@
-# strkit_rust_ext
-Extension for STRKit with components written in Rust, for improved performance. 
+# STRkit Rust extension
+
+Extension for STRKit with components written in Rust, for improved performance.
+
