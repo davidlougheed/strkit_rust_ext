@@ -1,6 +1,3 @@
-from typing import Dict, List, Tuple
-
-
 def mk_snvs_dict(
     query_sequence: str,
     pairs: list[tuple[int, int]],
@@ -8,7 +5,7 @@ def mk_snvs_dict(
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
-) -> Dict[int, str]: ...
+) -> dict[int, str]: ...
 
 
 def mk_snvs_hash(
@@ -18,4 +15,4 @@ def mk_snvs_hash(
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
-) -> Dict[int, str]: ...
+) -> dict[int, str]: ...
