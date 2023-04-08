@@ -23,6 +23,8 @@ jobs:
           python-version: '3.10'
       - name: Install dependencies
         run: pip install maturin pytest
+      - name: Install module
+        run: python -m maturin develop
       - name: Run tests
         run: pytest
       
