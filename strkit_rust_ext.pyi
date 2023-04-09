@@ -1,3 +1,9 @@
+def find_pair_by_ref_pos(
+    pairs: list[tuple[int, int]], 
+    target: int,
+) -> tuple[int, bool]: ...
+
+
 def get_snvs_simple(
     query_sequence: str,
     pairs: list[tuple[int, int]],
