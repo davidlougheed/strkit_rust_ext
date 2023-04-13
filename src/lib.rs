@@ -49,12 +49,12 @@ fn get_snvs_meticulous(
         let read_base = qry_seq_bytes[read_pos];
         let ref_base = ref_seq_bytes[ref_pos - ref_coord_start];
 
-        let contiguous = match last_rp {
-            Some(lr) => ref_pos - lr == 1,
+        let contiguous_at_base = match last_rp {
+            Some(lr) => contiguous_threshold == 0 || ref_pos - lr == 1,
             None => true,
         };
 
-        if read_base == ref_base && contiguous {
+        if read_base == ref_base && contiguous_at_base {
             let snv_group_len = snv_group.len();
 
             if snv_group_len > 0 {
@@ -63,7 +63,7 @@ fn get_snvs_meticulous(
                 lhs_contiguous += 1;
             }
 
-            if lhs_contiguous > contiguous_threshold && rhs_contiguous > contiguous_threshold {
+            if lhs_contiguous >= contiguous_threshold && rhs_contiguous >= contiguous_threshold {
                 if snv_group_len <= max_snv_group_size {
                     snvs.extend(snv_group.iter().cloned());
                 }
@@ -78,7 +78,7 @@ fn get_snvs_meticulous(
             continue;
         }
 
-        if !contiguous {  // Non-contiguous jump; insertion in query
+        if !contiguous_at_base {  // Non-contiguous jump; insertion in query
             lhs_contiguous = 0;
             last_rp = Some(ref_pos);
             continue;
@@ -96,6 +96,13 @@ fn get_snvs_meticulous(
             // Don't reset either contiguous variable; instead, take this as part of a SNP group
             last_rp = Some(ref_pos);
         }
+    }
+
+    // Special case: if we have stuff in the SNV group with no contiguous requirements,
+    // add it to the SNV HashMap.
+    let sgl = snv_group.len();
+    if contiguous_threshold == 0 && sgl > 0 && sgl <= max_snv_group_size {
+        snvs.extend(snv_group.iter().cloned());
     }
 
     snvs
