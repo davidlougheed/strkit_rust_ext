@@ -1,6 +1,17 @@
 use pyo3::prelude::*;
 use std::collections::HashMap;
 
+fn shannon_entropy(seq: &str) -> f32 {
+    let base_counts: HashMap<char, i32> = seq.chars().fold(HashMap::new(), |mut map, c| {
+        *map.entry(c).or_insert(0) += 1;
+        map
+    });
+    return -1.0 * base_counts.values().map(|&c| {
+        let p = c as f32 / seq.len() as f32;
+        p * p.log2()
+    }).sum::<f32>();
+}
+
 #[pyfunction]
 fn get_snvs_simple(
     query_sequence: &str,
