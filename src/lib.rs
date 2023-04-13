@@ -1,9 +1,9 @@
 use pyo3::prelude::*;
+use std::cmp;
 use std::collections::HashMap;
 
-fn shannon_entropy(seq: &str) -> f32 {
+fn shannon_entropy(seq: &[u8]) -> f32 {
     let base_counts: HashMap<u8, i32> = seq
-        .as_bytes()
         .iter()
         .fold(HashMap::new(), |mut map, &b| {
             *map.entry(b).or_insert(0) += 1;
