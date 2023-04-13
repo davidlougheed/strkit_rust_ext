@@ -2,15 +2,6 @@ use pyo3::prelude::*;
 use std::collections::HashMap;
 
 #[pyfunction]
-fn find_pair_by_ref_pos(pairs: Vec<(usize, usize)>, target: usize) -> (usize, bool) {
-    let res = &pairs[..].binary_search_by_key(&target, |&(_qc, rc)| rc);
-    return match *res {
-        Ok(i)  => (i, true),
-        Err(i) => (i, false),
-    };
-}
-
-#[pyfunction]
 fn get_snvs_simple(
     query_sequence: &str,
     pairs: Vec<(usize, usize)>,
@@ -34,7 +25,6 @@ fn get_snvs_simple(
 
 #[pymodule]
 fn strkit_rust_ext(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(find_pair_by_ref_pos, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_simple, m)?)?;
     Ok(())
 }
