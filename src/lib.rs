@@ -2,10 +2,13 @@ use pyo3::prelude::*;
 use std::collections::HashMap;
 
 fn shannon_entropy(seq: &str) -> f32 {
-    let base_counts: HashMap<char, i32> = seq.chars().fold(HashMap::new(), |mut map, c| {
-        *map.entry(c).or_insert(0) += 1;
-        map
-    });
+    let base_counts: HashMap<u8, i32> = seq
+        .as_bytes()
+        .iter()
+        .fold(HashMap::new(), |mut map, &b| {
+            *map.entry(b).or_insert(0) += 1;
+            map
+        });
     return -1.0 * base_counts.values().map(|&c| {
         let p = c as f32 / seq.len() as f32;
         p * p.log2()
