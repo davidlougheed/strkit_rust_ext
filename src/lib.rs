@@ -24,22 +24,29 @@ fn get_snvs_simple(
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
+    entropy_flank_size: usize,
+    entropy_threshold: f32,
 ) -> HashMap<usize, char> {
+    let qry_seq_len = query_sequence.len();
     let qry_seq_bytes = query_sequence.as_bytes();
     let ref_seq_bytes = ref_seq.as_bytes();
 
     pairs
         .iter()
         .filter_map(|&(read_pos, ref_pos)| {
-            (!(tr_start_pos <= ref_pos && ref_pos < tr_end_pos)
-                && (qry_seq_bytes[read_pos] != ref_seq_bytes[ref_pos - ref_coord_start]))
-                .then(|| (ref_pos, qry_seq_bytes[read_pos] as char))
+            let seq = &qry_seq_bytes[cmp::max(read_pos - entropy_flank_size, 0)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
+            (
+                !(tr_start_pos <= ref_pos && ref_pos < tr_end_pos) && 
+                (qry_seq_bytes[read_pos] != ref_seq_bytes[ref_pos - ref_coord_start]) && 
+                (shannon_entropy(seq) >= entropy_threshold)
+            ).then(|| (ref_pos, qry_seq_bytes[read_pos] as char))
         })
         .collect()
 }
 
 #[pymodule]
 fn strkit_rust_ext(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(get_snvs_meticulous, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_simple, m)?)?;
     Ok(())
 }
