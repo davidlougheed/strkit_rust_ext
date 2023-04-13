@@ -88,7 +88,7 @@ fn get_snvs_meticulous(
 
         if read_base != ref_base {
             // If our entropy is ok, add this to the SNV group
-            let seq = &qry_seq_bytes[cmp::max(read_pos - entropy_flank_size, 0)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
+            let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
             if shannon_entropy(seq) >= entropy_threshold {
                 snv_group.push((ref_pos, read_base as char));
             }
@@ -119,7 +119,7 @@ fn get_snvs_simple(
     pairs
         .iter()
         .filter_map(|&(read_pos, ref_pos)| {
-            let seq = &qry_seq_bytes[cmp::max(read_pos - entropy_flank_size, 0)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
+            let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
             (
                 !(tr_start_pos <= ref_pos && ref_pos < tr_end_pos) && 
                 (qry_seq_bytes[read_pos] != ref_seq_bytes[ref_pos - ref_coord_start]) && 
