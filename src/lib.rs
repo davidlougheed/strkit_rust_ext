@@ -2,6 +2,8 @@ use pyo3::prelude::*;
 use std::cmp;
 use std::collections::HashMap;
 
+const SNV_GAP_CHAR: char = '_' as char;
+
 fn shannon_entropy(seq: &[u8]) -> f32 {
     let base_counts: HashMap<u8, i32> = seq
         .iter()
@@ -14,6 +16,48 @@ fn shannon_entropy(seq: &[u8]) -> f32 {
         let p = c as f32 / seq.len() as f32;
         p * p.log2()
     }).sum::<f32>()
+}
+
+// The below function is a rewritten version of code written on time paid for by
+// McGill University, and is thus (c) McGill University 2023. 
+#[pyfunction]
+fn get_snvs_dbsnp(
+    candidate_snv_dict_items_flat: Vec<(usize, &str, &str, Vec<&str>)>,
+    query_sequence: &str,
+    pairs: Vec<(usize, usize)>,
+    tr_start_pos: usize,
+    tr_end_pos: usize,
+) -> HashMap<usize, char> {
+    let query_by_ref: HashMap<usize, usize> = pairs.iter().cloned().map(|(a, b)| (b, a)).collect();
+    let query_seq_bytes = query_sequence.as_bytes();
+
+    let mapped_l = pairs.first().unwrap().1;
+    let mapped_r = pairs.last().unwrap().1;
+
+    let mut snvs = HashMap::<usize, char>::new();
+
+    for (pos, _id, snv_ref, snv_alts) in candidate_snv_dict_items_flat {
+        if pos < mapped_l {
+            continue;
+        } else if pos > mapped_r {
+            break;
+        } else if tr_start_pos <= pos && pos <= tr_end_pos {
+            continue;
+        }
+
+        let read_base = match query_by_ref.get(&pos) {
+            Some(&q_pos) => query_seq_bytes[q_pos] as char,
+            None => SNV_GAP_CHAR,
+        };
+
+        if read_base == snv_ref.chars().next().unwrap() || snv_alts.iter().any(|&snv_alt| {
+            read_base == snv_alt.chars().next().unwrap()
+        }) {
+            snvs.insert(pos, read_base);
+        }
+    }
+
+    snvs
 }
 
 #[pyfunction]
@@ -138,6 +182,7 @@ fn get_snvs_simple(
 
 #[pymodule]
 fn strkit_rust_ext(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(get_snvs_dbsnp, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_meticulous, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_simple, m)?)?;
     Ok(())
