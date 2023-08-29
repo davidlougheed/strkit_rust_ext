@@ -155,10 +155,9 @@ fn get_snvs_meticulous(
     snvs
 }
 
-#[pyfunction]
-fn get_snvs_simple(
+fn _get_snvs_simple(
     query_sequence: &str,
-    pairs: Vec<(usize, usize)>,
+    pairs: &Vec<(usize, usize)>,
     ref_seq: &str,
     ref_coord_start: usize,
     tr_start_pos: usize,
@@ -183,11 +182,84 @@ fn get_snvs_simple(
         .collect()
 }
 
+#[pyfunction]
+fn get_snvs_simple(
+    query_sequence: &str,
+    pairs: Vec<(usize, usize)>,
+    ref_seq: &str,
+    ref_coord_start: usize,
+    tr_start_pos: usize,
+    tr_end_pos: usize,
+    entropy_flank_size: usize,
+    entropy_threshold: f32,
+) -> HashMap<usize, char> {
+    // Wrapper function for _get_snvs_simple for both Python binding and to 
+    // borrow the Vec of pairs (from ourselves) for the inner function
+    _get_snvs_simple(
+        query_sequence, 
+        &pairs, 
+        ref_seq, 
+        ref_coord_start,
+        tr_start_pos, 
+        tr_end_pos, 
+        entropy_flank_size,
+        entropy_threshold,
+    )
+}
+
+#[pyfunction]
+fn get_read_snvs(
+    query_sequence: &str,
+    pairs: Vec<(usize, usize)>,
+    ref_seq: &str,
+    ref_coord_start: usize,
+    tr_start_pos: usize,
+    tr_end_pos: usize,
+    contiguous_threshold: usize,
+    max_snv_group_size: usize,
+    too_many_snvs_threshold: usize,
+    entropy_flank_size: usize,
+    entropy_threshold: f32,
+) -> HashMap<usize, char> {
+    // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
+    // surrounded by a stretch of aligned bases of a specified size on either side.
+    // Returns a hash map of <position, base>
+
+    let snvs = _get_snvs_simple(
+        query_sequence, 
+        &pairs, 
+        ref_seq, 
+        ref_coord_start, 
+        tr_start_pos, 
+        tr_end_pos, 
+        entropy_flank_size, 
+        entropy_threshold,
+    );
+
+    if snvs.keys().len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
+        get_snvs_meticulous(
+            query_sequence, 
+            pairs, 
+            ref_seq, 
+            ref_coord_start, 
+            tr_start_pos, 
+            tr_end_pos, 
+            contiguous_threshold, 
+            max_snv_group_size, 
+            entropy_flank_size, 
+            entropy_threshold,
+        )
+    } else {
+        snvs
+    }
+}
+
 #[pymodule]
 fn strkit_rust_ext(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(shannon_entropy, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_dbsnp, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_meticulous, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_simple, m)?)?;
+    m.add_function(wrap_pyfunction!(get_read_snvs, m)?)?;
     Ok(())
 }
