@@ -4,7 +4,10 @@ use std::collections::HashMap;
 
 const SNV_GAP_CHAR: char = '_' as char;
 
+#[pyfunction]
 fn shannon_entropy(seq: &[u8]) -> f32 {
+    let seq_len = seq.len() as f32;
+
     let base_counts: HashMap<u8, i32> = seq
         .iter()
         .fold(HashMap::new(), |mut map, &b| {
@@ -13,7 +16,7 @@ fn shannon_entropy(seq: &[u8]) -> f32 {
         });
 
     -1.0 * base_counts.values().map(|&c| {
-        let p = c as f32 / seq.len() as f32;
+        let p = c as f32 / seq_len;
         p * p.log2()
     }).sum::<f32>()
 }
@@ -182,6 +185,7 @@ fn get_snvs_simple(
 
 #[pymodule]
 fn strkit_rust_ext(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(shannon_entropy, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_dbsnp, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_meticulous, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_simple, m)?)?;

@@ -1,3 +1,7 @@
+def shannon_entropy(
+    seq: bytes,
+) -> float: ...
+
 def get_snvs_dbsnp(
     candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]],
     query_sequence: str,
