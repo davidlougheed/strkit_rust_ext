@@ -16,7 +16,7 @@ pub fn shannon_entropy(data: &PyBytes) -> f32 {
 #[pyfunction]
 fn get_snvs_dbsnp(
     candidate_snv_dict_items_flat: Vec<(usize, &str, &str, Vec<&str>)>,
-    query_sequence: &str,
+    query_sequence: &PyBytes,
     pairs: Vec<(usize, usize)>,
     tr_start_pos: usize,
     tr_end_pos: usize,
