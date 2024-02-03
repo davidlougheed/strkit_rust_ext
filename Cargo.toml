@@ -10,4 +10,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 entropy = "0.4.2"
-pyo3 = "0.19.2"
+pyo3 = "0.20.2"
