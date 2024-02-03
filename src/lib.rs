@@ -1,4 +1,5 @@
 use pyo3::prelude::*;
+use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyList};
 use std::cmp;
 use std::collections::HashMap;
 use entropy::shannon_entropy as _shannon_entropy;
@@ -6,8 +7,8 @@ use entropy::shannon_entropy as _shannon_entropy;
 const SNV_GAP_CHAR: char = '_' as char;
 
 #[pyfunction]
-pub fn shannon_entropy(data: &[u8]) -> f32 {
-    _shannon_entropy(data)
+pub fn shannon_entropy(data: &PyBytes) -> f32 {
+    _shannon_entropy(data.as_bytes())
 }
 
 // The below function is a rewritten version of code written on time paid for by
@@ -53,10 +54,11 @@ fn get_snvs_dbsnp(
 }
 
 #[pyfunction]
-fn get_snvs_meticulous(
-    query_sequence: &str,
-    pairs: Vec<(usize, usize)>,
-    ref_seq: &str,
+fn get_snvs_meticulous<'py>(
+    py: Python<'py>,
+    query_sequence: &PyBytes,
+    pairs: &PyList,
+    ref_seq: &PyBytes,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -64,8 +66,8 @@ fn get_snvs_meticulous(
     max_snv_group_size: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> HashMap<usize, char> {
-    let qry_seq_len = query_sequence.len();
+) -> &'py PyDict {
+    let qry_seq_len = query_sequence.len().unwrap();
 
     let qry_seq_bytes = query_sequence.as_bytes();
     let ref_seq_bytes = ref_seq.as_bytes();
@@ -75,9 +77,13 @@ fn get_snvs_meticulous(
     let mut last_rp: Option<usize> = None;
 
     let mut snv_group = Vec::<(usize, char)>::new();
-    let mut snvs = HashMap::<usize, char>::new();
+    let snvs = PyDict::new(py);
 
-    for (read_pos, ref_pos) in pairs {
+    let extracted_pairs = pairs
+        .iter()
+        .map(|pair| pair.extract::<(usize, usize)>().unwrap());
+
+    for (read_pos, ref_pos) in extracted_pairs {
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
         }
@@ -101,7 +107,9 @@ fn get_snvs_meticulous(
 
             if lhs_contiguous >= contiguous_threshold && rhs_contiguous >= contiguous_threshold {
                 if snv_group_len <= max_snv_group_size {
-                    snvs.extend(snv_group.iter().cloned());
+                    for &(snv_pos, snv_a) in snv_group.iter() {
+                        snvs.set_item(snv_pos, snv_a).unwrap();
+                    }
                 }
 
                 // Otherwise, it might be a little mismapped area or a longer deletion vs reference, so ignore it.
@@ -138,29 +146,34 @@ fn get_snvs_meticulous(
     // add it to the SNV HashMap.
     let sgl = snv_group.len();
     if contiguous_threshold == 0 && sgl > 0 && sgl <= max_snv_group_size {
-        snvs.extend(snv_group.iter().cloned());
+        for &(snv_pos, snv_a) in snv_group.iter() {
+            snvs.set_item(snv_pos, snv_a).unwrap();
+        }
     }
 
     snvs
 }
 
-fn _get_snvs_simple(
-    query_sequence: &str,
-    pairs: &Vec<(usize, usize)>,
-    ref_seq: &str,
+#[pyfunction]
+fn get_snvs_simple<'py> (
+    py: Python<'py>,
+    query_sequence: &PyBytes,
+    pairs: &PyList,
+    ref_seq: &PyBytes,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> HashMap<usize, char> {
-    let qry_seq_len = query_sequence.len();
+) -> &'py PyDict {
+    let qry_seq_len = query_sequence.len().unwrap();
     let qry_seq_bytes = query_sequence.as_bytes();
     let ref_seq_bytes = ref_seq.as_bytes();
 
     pairs
         .iter()
-        .filter_map(|&(read_pos, ref_pos)| {
+        .filter_map(|pair| {
+            let (read_pos, ref_pos) = pair.extract::<(usize, usize)>().unwrap();
             let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
             (
                 !(tr_start_pos <= ref_pos && ref_pos < tr_end_pos) && 
@@ -168,39 +181,15 @@ fn _get_snvs_simple(
                 (_shannon_entropy(seq) >= entropy_threshold)
             ).then(|| (ref_pos, qry_seq_bytes[read_pos] as char))
         })
-        .collect()
+        .into_py_dict(py)
 }
 
 #[pyfunction]
-fn get_snvs_simple(
-    query_sequence: &str,
-    pairs: Vec<(usize, usize)>,
-    ref_seq: &str,
-    ref_coord_start: usize,
-    tr_start_pos: usize,
-    tr_end_pos: usize,
-    entropy_flank_size: usize,
-    entropy_threshold: f32,
-) -> HashMap<usize, char> {
-    // Wrapper function for _get_snvs_simple for both Python binding and to 
-    // borrow the Vec of pairs (from ourselves) for the inner function
-    _get_snvs_simple(
-        query_sequence, 
-        &pairs, 
-        ref_seq, 
-        ref_coord_start,
-        tr_start_pos, 
-        tr_end_pos, 
-        entropy_flank_size,
-        entropy_threshold,
-    )
-}
-
-#[pyfunction]
-fn get_read_snvs(
-    query_sequence: &str,
-    pairs: Vec<(usize, usize)>,
-    ref_seq: &str,
+fn get_read_snvs<'py>(
+    py: Python<'py>,
+    query_sequence: &PyBytes,
+    pairs: &PyList,
+    ref_seq: &PyBytes,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -209,14 +198,15 @@ fn get_read_snvs(
     too_many_snvs_threshold: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> HashMap<usize, char> {
+) -> &'py PyDict {
     // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
     // surrounded by a stretch of aligned bases of a specified size on either side.
     // Returns a hash map of <position, base>
 
-    let snvs = _get_snvs_simple(
+    let snvs = get_snvs_simple(
+        py,
         query_sequence, 
-        &pairs, 
+        pairs, 
         ref_seq, 
         ref_coord_start, 
         tr_start_pos, 
@@ -227,6 +217,7 @@ fn get_read_snvs(
 
     if snvs.keys().len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
         get_snvs_meticulous(
+            py,
             query_sequence, 
             pairs, 
             ref_seq, 
