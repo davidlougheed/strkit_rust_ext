@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyList};
+use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyList, PyString};
 use std::cmp;
 use std::collections::HashMap;
 use entropy::shannon_entropy as _shannon_entropy;
@@ -16,13 +16,13 @@ pub fn shannon_entropy(data: &PyBytes) -> f32 {
 #[pyfunction]
 fn get_snvs_dbsnp(
     candidate_snv_dict_items_flat: Vec<(usize, &str, &str, Vec<&str>)>,
-    query_sequence: &PyBytes,
+    query_sequence: &PyString,
     pairs: Vec<(usize, usize)>,
     tr_start_pos: usize,
     tr_end_pos: usize,
 ) -> HashMap<usize, char> {
     let query_by_ref: HashMap<usize, usize> = pairs.iter().cloned().map(|(a, b)| (b, a)).collect();
-    let query_seq_bytes = query_sequence.as_bytes();
+    let query_seq_bytes = query_sequence.to_str().unwrap().as_bytes();
 
     let mapped_l = pairs.first().unwrap().1;
     let mapped_r = pairs.last().unwrap().1;
@@ -56,9 +56,9 @@ fn get_snvs_dbsnp(
 #[pyfunction]
 fn get_snvs_meticulous<'py>(
     py: Python<'py>,
-    query_sequence: &PyBytes,
+    query_sequence: &PyString,
     pairs: &PyList,
-    ref_seq: &PyBytes,
+    ref_seq: &PyString,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -69,8 +69,8 @@ fn get_snvs_meticulous<'py>(
 ) -> &'py PyDict {
     let qry_seq_len = query_sequence.len().unwrap();
 
-    let qry_seq_bytes = query_sequence.as_bytes();
-    let ref_seq_bytes = ref_seq.as_bytes();
+    let qry_seq_bytes = query_sequence.to_str().unwrap().as_bytes();
+    let ref_seq_bytes = ref_seq.to_str().unwrap().as_bytes();
 
     let mut lhs_contiguous: usize = 0;
     let mut rhs_contiguous: usize = 0;
@@ -157,9 +157,9 @@ fn get_snvs_meticulous<'py>(
 #[pyfunction]
 fn get_snvs_simple<'py> (
     py: Python<'py>,
-    query_sequence: &PyBytes,
+    query_sequence: &PyString,
     pairs: &PyList,
-    ref_seq: &PyBytes,
+    ref_seq: &PyString,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -167,8 +167,8 @@ fn get_snvs_simple<'py> (
     entropy_threshold: f32,
 ) -> &'py PyDict {
     let qry_seq_len = query_sequence.len().unwrap();
-    let qry_seq_bytes = query_sequence.as_bytes();
-    let ref_seq_bytes = ref_seq.as_bytes();
+    let qry_seq_bytes = query_sequence.to_str().unwrap().as_bytes();
+    let ref_seq_bytes = ref_seq.to_str().unwrap().as_bytes();
 
     pairs
         .iter()
@@ -187,9 +187,9 @@ fn get_snvs_simple<'py> (
 #[pyfunction]
 fn get_read_snvs<'py>(
     py: Python<'py>,
-    query_sequence: &PyBytes,
+    query_sequence: &PyString,
     pairs: &PyList,
-    ref_seq: &PyBytes,
+    ref_seq: &PyString,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
