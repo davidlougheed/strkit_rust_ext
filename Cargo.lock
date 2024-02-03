@@ -194,7 +194,7 @@ checksum = "62bb4feee49fdd9f707ef802e22365a35de4b7b299de4763d44bfea899442ff9"
 
 [[package]]
 name = "strkit_rust_ext"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "entropy",
  "pyo3",
