@@ -1,24 +1,13 @@
 use pyo3::prelude::*;
 use std::cmp;
 use std::collections::HashMap;
+use entropy::shannon_entropy as _shannon_entropy;
 
 const SNV_GAP_CHAR: char = '_' as char;
 
 #[pyfunction]
-fn shannon_entropy(seq: &[u8]) -> f32 {
-    let seq_len = seq.len() as f32;
-
-    let base_counts: HashMap<u8, i32> = seq
-        .iter()
-        .fold(HashMap::new(), |mut map, &b| {
-            *map.entry(b).or_insert(0) += 1;
-            map
-        });
-
-    -1.0 * base_counts.values().map(|&c| {
-        let p = c as f32 / seq_len;
-        p * p.log2()
-    }).sum::<f32>()
+pub fn shannon_entropy(data: &[u8]) -> f32 {
+    _shannon_entropy(data)
 }
 
 // The below function is a rewritten version of code written on time paid for by
@@ -136,7 +125,7 @@ fn get_snvs_meticulous(
         if read_base != ref_base {
             // If our entropy is ok, add this to the SNV group
             let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
-            if shannon_entropy(seq) >= entropy_threshold {
+            if _shannon_entropy(seq) >= entropy_threshold {
                 snv_group.push((ref_pos, read_base as char));
             }
 
@@ -176,7 +165,7 @@ fn _get_snvs_simple(
             (
                 !(tr_start_pos <= ref_pos && ref_pos < tr_end_pos) && 
                 (qry_seq_bytes[read_pos] != ref_seq_bytes[ref_pos - ref_coord_start]) && 
-                (shannon_entropy(seq) >= entropy_threshold)
+                (_shannon_entropy(seq) >= entropy_threshold)
             ).then(|| (ref_pos, qry_seq_bytes[read_pos] as char))
         })
         .collect()
