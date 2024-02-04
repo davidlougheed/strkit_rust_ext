@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyList, PyString};
+use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyList, PyString, PyTuple};
 use std::cmp;
 use std::collections::HashMap;
 use entropy::shannon_entropy as _shannon_entropy;
@@ -57,8 +57,9 @@ fn get_snvs_dbsnp(
 fn get_snvs_meticulous<'py>(
     py: Python<'py>,
     query_sequence: &PyString,
-    pairs: &PyList,
     ref_seq: &PyString,
+    query_coords: &PyList,
+    ref_coords: &PyList,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -79,14 +80,14 @@ fn get_snvs_meticulous<'py>(
     let mut snv_group = Vec::<(usize, char)>::new();
     let snvs = PyDict::new(py);
 
-    let extracted_pairs = pairs
-        .iter()
-        .map(|pair| pair.extract::<(usize, usize)>().unwrap());
+    for i in 0..(ref_coords.len()) {
+        let ref_pos = ref_coords.get_item(i).unwrap().extract::<usize>().unwrap();
 
-    for (read_pos, ref_pos) in extracted_pairs {
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
         }
+
+        let read_pos = query_coords.get_item(i).unwrap().extract::<usize>().unwrap();
 
         let read_base = qry_seq_bytes[read_pos];
         let ref_base = ref_seq_bytes[ref_pos - ref_coord_start];
@@ -158,8 +159,9 @@ fn get_snvs_meticulous<'py>(
 fn get_snvs_simple<'py> (
     py: Python<'py>,
     query_sequence: &PyString,
-    pairs: &PyList,
     ref_seq: &PyString,
+    query_coords: &PyList,
+    ref_coords: &PyList,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -170,26 +172,31 @@ fn get_snvs_simple<'py> (
     let qry_seq_bytes = query_sequence.to_str().unwrap().as_bytes();
     let ref_seq_bytes = ref_seq.to_str().unwrap().as_bytes();
 
-    pairs
-        .iter()
-        .filter_map(|pair| {
-            let (read_pos, ref_pos) = pair.extract::<(usize, usize)>().unwrap();
-            let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
-            (
-                !(tr_start_pos <= ref_pos && ref_pos < tr_end_pos) && 
-                (qry_seq_bytes[read_pos] != ref_seq_bytes[ref_pos - ref_coord_start]) && 
-                (_shannon_entropy(seq) >= entropy_threshold)
-            ).then(|| (ref_pos, qry_seq_bytes[read_pos] as char))
-        })
-        .into_py_dict(py)
+    (0..query_coords.len()).filter_map(|i| {
+        let ref_pos = ref_coords.get_item(i).unwrap().extract::<usize>().unwrap();
+
+        if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
+            return None;
+        }
+
+        let read_pos = query_coords.get_item(i).unwrap().extract::<usize>().unwrap();
+
+        if qry_seq_bytes[read_pos] == ref_seq_bytes[ref_pos - ref_coord_start] {
+            return None;
+        }
+
+        let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
+        (_shannon_entropy(seq) >= entropy_threshold).then(|| (ref_pos, qry_seq_bytes[read_pos] as char))
+    }).into_py_dict(py)
 }
 
 #[pyfunction]
 fn get_read_snvs<'py>(
     py: Python<'py>,
     query_sequence: &PyString,
-    pairs: &PyList,
     ref_seq: &PyString,
+    query_coords: &PyList,
+    ref_coords: &PyList,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -206,8 +213,9 @@ fn get_read_snvs<'py>(
     let snvs = get_snvs_simple(
         py,
         query_sequence, 
-        pairs, 
         ref_seq, 
+        query_coords,
+        ref_coords,
         ref_coord_start, 
         tr_start_pos, 
         tr_end_pos, 
@@ -219,8 +227,9 @@ fn get_read_snvs<'py>(
         get_snvs_meticulous(
             py,
             query_sequence, 
-            pairs, 
             ref_seq, 
+            query_coords,
+            ref_coords,
             ref_coord_start, 
             tr_start_pos, 
             tr_end_pos, 
@@ -234,6 +243,52 @@ fn get_read_snvs<'py>(
     }
 }
 
+#[pyfunction]
+fn get_aligned_pair_matches<'py>(
+    py: Python<'py>, 
+    cigar: &PyList, 
+    query_start: usize, 
+    ref_start: usize,
+) -> &'py PyTuple {
+    let mut qi = query_start;
+    let mut di = ref_start;
+
+    // let mut res_vec: Vec<&PyTuple> = vec![];
+    let mut qi_vec: Vec<usize> = Vec::new();
+    let mut di_vec: Vec<usize> = Vec::new();
+
+    for cigar_op in cigar.iter() {
+        let dco0 = cigar_op.get_item(0).unwrap().extract::<usize>().unwrap();
+
+        match dco0 {
+            0 | 7 | 8 => {  // MATCH | SEQ_MATCH | SEQ_MISMATCH
+                let dco1 = cigar_op.get_item(1).unwrap().extract::<usize>().unwrap();
+                qi_vec.extend((0..dco1).map(|i| qi + i));
+                di_vec.extend((0..dco1).map(|i| di + i));
+                // res_vec.extend((0..(dco1)).map(|i: usize| {
+                //     PyTuple::new(py, [qi + i, di + i])
+                // }));
+                qi += dco1;
+                di += dco1;
+            },
+            1 | 4 => {  // INSERTION | SOFT_CLIPPED
+                let dco1 = cigar_op.get_item(1).unwrap().extract::<usize>().unwrap();
+                qi += dco1;
+            },
+            2 | 3 => {  // DELETION | SKIPPED
+                let dco1 = cigar_op.get_item(1).unwrap().extract::<usize>().unwrap();
+                di += dco1;
+            },
+            5 | 6 => {  // HARD_CLIPPED | PADDING
+                // Do nothing
+            }
+            _ => panic!("Invalid CIGAR operation")
+        }
+    }
+
+    PyTuple::new(py, [PyList::new(py, qi_vec), PyList::new(py, di_vec)])
+}
+
 #[pymodule]
 fn strkit_rust_ext(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(shannon_entropy, m)?)?;
@@ -241,5 +296,6 @@ fn strkit_rust_ext(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_snvs_meticulous, m)?)?;
     m.add_function(wrap_pyfunction!(get_snvs_simple, m)?)?;
     m.add_function(wrap_pyfunction!(get_read_snvs, m)?)?;
+    m.add_function(wrap_pyfunction!(get_aligned_pair_matches, m)?)?;
     Ok(())
 }

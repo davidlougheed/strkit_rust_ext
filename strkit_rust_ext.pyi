@@ -12,8 +12,9 @@ def get_snvs_dbsnp(
 
 def get_snvs_meticulous(
     query_sequence: str,
-    pairs: list[tuple[int, int]],
     ref_seq: str,
+    query_coords: list[int],
+    ref_coords: list[int],
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
@@ -25,8 +26,9 @@ def get_snvs_meticulous(
 
 def get_snvs_simple(
     query_sequence: str,
-    pairs: list[tuple[int, int]],
     ref_seq: str,
+    query_coords: list[int],
+    ref_coords: list[int],
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
@@ -36,8 +38,9 @@ def get_snvs_simple(
 
 def get_read_snvs(
     query_sequence: str,
-    pairs: list[tuple[int, int]],
     ref_seq: str,
+    query_coords: list[int],
+    ref_coords: list[int],
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
@@ -47,3 +50,9 @@ def get_read_snvs(
     entropy_flank_size: int,
     entropy_threshold: float,
 ) -> dict[int, str]: ...
+
+def get_aligned_pair_matches(
+    cigar: list[tuple[int, int]],
+    query_start: int,
+    query_end: int,
+) -> tuple[list[int], list[int]]: ...
