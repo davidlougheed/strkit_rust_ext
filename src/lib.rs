@@ -278,10 +278,9 @@ fn get_aligned_pair_matches<'py>(
                 let dco1 = cigar_op.get_item(1).unwrap().extract::<usize>().unwrap();
                 di += dco1;
             },
-            5 | 6 => {  // HARD_CLIPPED | PADDING
+            _ => {  // HARD_CLIPPED | PADDING | (unknown cigar op)
                 // Do nothing
             }
-            _ => panic!("Invalid CIGAR operation")
         }
     }
 
