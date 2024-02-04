@@ -263,11 +263,10 @@ fn get_aligned_pair_matches<'py>(
         match dco0 {
             0 | 7 | 8 => {  // MATCH | SEQ_MATCH | SEQ_MISMATCH
                 let dco1 = cigar_op.get_item(1).unwrap().extract::<usize>().unwrap();
+                
                 qi_vec.extend((0..dco1).map(|i| qi + i));
                 di_vec.extend((0..dco1).map(|i| di + i));
-                // res_vec.extend((0..(dco1)).map(|i: usize| {
-                //     PyTuple::new(py, [qi + i, di + i])
-                // }));
+
                 qi += dco1;
                 di += dco1;
             },
