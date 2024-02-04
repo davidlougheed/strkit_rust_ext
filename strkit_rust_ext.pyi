@@ -54,5 +54,5 @@ def get_read_snvs(
 def get_aligned_pair_matches(
     cigar: list[tuple[int, int]],
     query_start: int,
-    query_end: int,
+    ref_start: int,
 ) -> tuple[list[int], list[int]]: ...
