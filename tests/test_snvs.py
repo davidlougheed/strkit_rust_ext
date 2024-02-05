@@ -13,7 +13,7 @@ def test_get_snvs_meticulous():
 
 
 def test_get_snvs_simple():
-    r_items = tuple(sorted(get_snvs_simple(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 10, 0.0).items()))
+    r_items = tuple(sorted(get_snvs_simple(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 20, 10, 0.0).items()))
     assert SNVS == r_items
 
 def test_get_read_snvs():
