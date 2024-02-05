@@ -156,8 +156,7 @@ fn get_snvs_meticulous<'py>(
 }
 
 #[pyfunction]
-fn get_snvs_simple<'py> (
-    py: Python<'py>,
+fn get_snvs_simple (
     query_sequence: &PyString,
     ref_seq: &PyString,
     query_coords: &PyList,
@@ -165,29 +164,44 @@ fn get_snvs_simple<'py> (
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
+    too_many_snvs_threshold: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> &'py PyDict {
-    let qry_seq_len = query_sequence.len().unwrap();
+) -> HashMap<usize, char> {
     let qry_seq_bytes = query_sequence.to_str().unwrap().as_bytes();
+    let qry_seq_len = qry_seq_bytes.len();
     let ref_seq_bytes = ref_seq.to_str().unwrap().as_bytes();
 
-    (0..query_coords.len()).filter_map(|i| {
+    let mut n_snvs = 0;
+    let mut res = HashMap::new();
+
+    for i in 0..query_coords.len() {
         let ref_pos = ref_coords.get_item(i).unwrap().extract::<usize>().unwrap();
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
-            return None;
+            continue;
         }
 
         let read_pos = query_coords.get_item(i).unwrap().extract::<usize>().unwrap();
 
         if qry_seq_bytes[read_pos] == ref_seq_bytes[ref_pos - ref_coord_start] {
-            return None;
+            continue;
         }
 
         let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
-        (_shannon_entropy(seq) >= entropy_threshold).then(|| (ref_pos, qry_seq_bytes[read_pos] as char))
-    }).into_py_dict(py)
+        if _shannon_entropy(seq) >= entropy_threshold {
+            n_snvs += 1;
+
+            // Below it's '>=' but we can skip one set_item by using '>'
+            if too_many_snvs_threshold > 0 && n_snvs > too_many_snvs_threshold {
+                return res;
+            }
+
+            res.insert(ref_pos, qry_seq_bytes[read_pos] as char);
+        }
+    }
+
+    res
 }
 
 #[pyfunction]
@@ -211,7 +225,6 @@ fn get_read_snvs<'py>(
     // Returns a hash map of <position, base>
 
     let snvs = get_snvs_simple(
-        py,
         query_sequence, 
         ref_seq, 
         query_coords,
@@ -219,11 +232,12 @@ fn get_read_snvs<'py>(
         ref_coord_start, 
         tr_start_pos, 
         tr_end_pos, 
+        too_many_snvs_threshold,
         entropy_flank_size, 
         entropy_threshold,
     );
 
-    if snvs.keys().len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
+    if snvs.len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
         get_snvs_meticulous(
             py,
             query_sequence, 
@@ -239,7 +253,7 @@ fn get_read_snvs<'py>(
             entropy_threshold,
         )
     } else {
-        snvs
+        snvs.into_py_dict(py)
     }
 }
 
