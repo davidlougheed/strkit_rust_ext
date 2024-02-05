@@ -23,17 +23,17 @@ def main():
     print(f"shannon took {datetime.now() - dt}")
 
     dt = datetime.now()
-    for _ in range(1000000):
+    for _ in range(5000000):
         get_snvs_simple(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 10, 0.0)
     print(f"get_snvs_simple took {datetime.now() - dt}")
 
     dt = datetime.now()
-    for _ in range(1000000):
+    for _ in range(5000000):
         get_snvs_meticulous(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 0, 5, 10, 0.0)
     print(f"get_snvs_meticulous took {datetime.now() - dt}")
 
     dt = datetime.now()
-    for _ in range(1000000):
+    for _ in range(5000000):
         get_read_snvs(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 0, 5, 20, 10, 0.0)
     print(f"get_read_snvs took {datetime.now() - dt}")
 
