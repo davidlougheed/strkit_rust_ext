@@ -1,3 +1,5 @@
+from typing import Optional
+
 def shannon_entropy(
     seq: bytes,
 ) -> float: ...
@@ -57,3 +59,7 @@ def get_aligned_pair_matches(
     query_start: int,
     ref_start: int,
 ) -> tuple[list[int], list[int]]: ...
+
+def consensus_seq(
+    seqs: tuple[str, ...],
+) -> Optional[str]: ...
