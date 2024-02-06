@@ -1,6 +1,7 @@
 use pyo3::prelude::pyfunction;
 use bio::alignment::pairwise::Scoring;
 use bio::alignment::poa::*;
+use std::panic;
 
 #[pyfunction]
 pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
@@ -12,7 +13,10 @@ pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
         for y in _seqs {
             aligner.global(y.as_bytes()).add_to_graph();
         }
-
-        Some(String::from_utf8(aligner.consensus()).unwrap())
+        
+        panic::catch_unwind(|| {
+            let consensus: Vec<u8> = aligner.consensus();
+            String::from_utf8(consensus).unwrap()
+        }).ok()
     })
 }
