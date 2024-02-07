@@ -1,6 +1,7 @@
 from datetime import datetime
 from strkit_rust_ext import (
-    shannon_entropy, get_snvs_simple, get_snvs_meticulous, get_read_snvs, get_aligned_pair_matches
+    shannon_entropy, get_snvs_simple, get_snvs_meticulous, get_read_snvs, get_aligned_pair_matches,
+    consensus_seq
 )
 from .common import REF_SEQ, Q_SEQ, PAIRS, ALIGN_COORDS_Q, ALIGN_COORDS_R, CIGAR_OPS
 from .cigar import get_aligned_pairs_from_cigar
@@ -13,7 +14,7 @@ strs = [
     b"AAAAAAAATTTTCCCTCTCTGGGAA",
     b"ATATTTTATATTTATTTATATATAT",
 ]
-
+strs_st = tuple(map(lambda s: s.decode("ascii"), strs))
 
 def main():
     dt = datetime.now()
@@ -23,17 +24,17 @@ def main():
     print(f"shannon took {datetime.now() - dt}")
 
     dt = datetime.now()
-    for _ in range(5000000):
-        get_snvs_simple(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 10, 0.0)
+    for _ in range(2000000):
+        get_snvs_simple(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 20, 10, 0.0)
     print(f"get_snvs_simple took {datetime.now() - dt}")
 
     dt = datetime.now()
-    for _ in range(5000000):
+    for _ in range(2000000):
         get_snvs_meticulous(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 0, 5, 10, 0.0)
     print(f"get_snvs_meticulous took {datetime.now() - dt}")
 
     dt = datetime.now()
-    for _ in range(5000000):
+    for _ in range(2000000):
         get_read_snvs(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 0, 5, 20, 10, 0.0)
     print(f"get_read_snvs took {datetime.now() - dt}")
 
@@ -46,6 +47,12 @@ def main():
     for _ in range(10000):
         get_aligned_pair_matches(CIGAR_OPS, 0, 100000)
     print(f"get_aligned_pair_matches (rs) took {datetime.now() - dt}")
+
+    dt = datetime.now()
+    print(consensus_seq(strs_st))
+    for _ in range(10000):
+        consensus_seq(strs_st)
+    print(f"consensus_seq took {datetime.now() - dt}")
 
 
 if __name__ == "__main__":
