@@ -54,12 +54,11 @@ pub fn get_snvs_dbsnp(
 }
 
 #[pyfunction]
-pub fn get_snvs_meticulous<'py>(
-    py: Python<'py>,
-    query_sequence: &PyString,
-    ref_seq: &PyString,
-    query_coords: &PyList,
-    ref_coords: &PyList,
+pub fn get_snvs_meticulous(
+    query_sequence: &str,
+    ref_seq: &str,
+    query_coords: Vec<usize>,
+    ref_coords: Vec<usize>,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -67,27 +66,28 @@ pub fn get_snvs_meticulous<'py>(
     max_snv_group_size: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> &'py PyDict {
-    let qry_seq_len = query_sequence.len().unwrap();
+) -> HashMap<usize, char> {
+    let qry_seq_len = query_sequence.len();
 
-    let qry_seq_bytes = query_sequence.to_str().unwrap().as_bytes();
-    let ref_seq_bytes = ref_seq.to_str().unwrap().as_bytes();
+    let qry_seq_bytes = query_sequence.as_bytes();
+    let ref_seq_bytes = ref_seq.as_bytes();
 
     let mut lhs_contiguous: usize = 0;
     let mut rhs_contiguous: usize = 0;
     let mut last_rp: Option<usize> = None;
 
     let mut snv_group = Vec::<(usize, char)>::new();
-    let snvs = PyDict::new(py);
+
+    let mut snvs = HashMap::new();
 
     for i in 0..(ref_coords.len()) {
-        let ref_pos = ref_coords.get_item(i).unwrap().extract::<usize>().unwrap();
+        let ref_pos = ref_coords[i];
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
         }
 
-        let read_pos = query_coords.get_item(i).unwrap().extract::<usize>().unwrap();
+        let read_pos = query_coords[i];
 
         let read_base = qry_seq_bytes[read_pos];
         let ref_base = ref_seq_bytes[ref_pos - ref_coord_start];
@@ -109,7 +109,7 @@ pub fn get_snvs_meticulous<'py>(
             if lhs_contiguous >= contiguous_threshold && rhs_contiguous >= contiguous_threshold {
                 if snv_group_len <= max_snv_group_size {
                     for &(snv_pos, snv_a) in snv_group.iter() {
-                        snvs.set_item(snv_pos, snv_a).unwrap();
+                        snvs.insert(snv_pos, snv_a).unwrap();
                     }
                 }
 
@@ -148,7 +148,7 @@ pub fn get_snvs_meticulous<'py>(
     let sgl = snv_group.len();
     if contiguous_threshold == 0 && sgl > 0 && sgl <= max_snv_group_size {
         for &(snv_pos, snv_a) in snv_group.iter() {
-            snvs.set_item(snv_pos, snv_a).unwrap();
+            snvs.insert(snv_pos, snv_a).unwrap();
         }
     }
 
@@ -157,10 +157,10 @@ pub fn get_snvs_meticulous<'py>(
 
 #[pyfunction]
 pub fn get_snvs_simple (
-    query_sequence: &PyString,
-    ref_seq: &PyString,
-    query_coords: &PyList,
-    ref_coords: &PyList,
+    query_sequence: &str,
+    ref_seq: &str,
+    query_coords: Vec<usize>,
+    ref_coords: Vec<usize>,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -168,21 +168,21 @@ pub fn get_snvs_simple (
     entropy_flank_size: usize,
     entropy_threshold: f32,
 ) -> HashMap<usize, char> {
-    let qry_seq_bytes = query_sequence.to_str().unwrap().as_bytes();
+    let qry_seq_bytes = query_sequence.as_bytes();
     let qry_seq_len = qry_seq_bytes.len();
-    let ref_seq_bytes = ref_seq.to_str().unwrap().as_bytes();
+    let ref_seq_bytes = ref_seq.as_bytes();
 
     let mut n_snvs = 0;
     let mut res = HashMap::new();
 
     for i in 0..query_coords.len() {
-        let ref_pos = ref_coords.get_item(i).unwrap().extract::<usize>().unwrap();
+        let ref_pos = ref_coords[i];
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
         }
 
-        let read_pos = query_coords.get_item(i).unwrap().extract::<usize>().unwrap();
+        let read_pos = query_coords[i];
 
         if qry_seq_bytes[read_pos] == ref_seq_bytes[ref_pos - ref_coord_start] {
             continue;
@@ -202,6 +202,56 @@ pub fn get_snvs_simple (
     }
 
     res
+}
+
+pub fn get_read_snvs_rs(
+    query_sequence: &str,
+    ref_seq: &str,
+    query_coords: Vec<usize>,
+    ref_coords: Vec<usize>,
+    ref_coord_start: usize,
+    tr_start_pos: usize,
+    tr_end_pos: usize,
+    contiguous_threshold: usize,
+    max_snv_group_size: usize,
+    too_many_snvs_threshold: usize,
+    entropy_flank_size: usize,
+    entropy_threshold: f32,
+) -> HashMap<usize, char> {
+    // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
+    // surrounded by a stretch of aligned bases of a specified size on either side.
+    // Returns a hash map of <position, base>
+
+    let snvs = get_snvs_simple(
+        query_sequence, 
+        ref_seq, 
+        query_coords,
+        ref_coords,
+        ref_coord_start, 
+        tr_start_pos, 
+        tr_end_pos, 
+        too_many_snvs_threshold,
+        entropy_flank_size, 
+        entropy_threshold,
+    );
+
+    if snvs.len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
+        get_snvs_meticulous(
+            query_sequence, 
+            ref_seq, 
+            query_coords,
+            ref_coords,
+            ref_coord_start, 
+            tr_start_pos, 
+            tr_end_pos, 
+            contiguous_threshold, 
+            max_snv_group_size, 
+            entropy_flank_size, 
+            entropy_threshold,
+        )
+    } else {
+        snvs
+    }
 }
 
 #[pyfunction]
@@ -225,10 +275,10 @@ pub fn get_read_snvs<'py>(
     // Returns a hash map of <position, base>
 
     let snvs = get_snvs_simple(
-        query_sequence, 
-        ref_seq, 
-        query_coords,
-        ref_coords,
+        query_sequence.to_str().unwrap(), 
+        ref_seq.to_str().unwrap(), 
+        query_coords.extract::<Vec<usize>>().unwrap(),
+        ref_coords.extract::<Vec<usize>>().unwrap(),
         ref_coord_start, 
         tr_start_pos, 
         tr_end_pos, 
@@ -239,11 +289,10 @@ pub fn get_read_snvs<'py>(
 
     if snvs.len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
         get_snvs_meticulous(
-            py,
-            query_sequence, 
-            ref_seq, 
-            query_coords,
-            ref_coords,
+            query_sequence.to_str().unwrap(), 
+            ref_seq.to_str().unwrap(), 
+            query_coords.extract::<Vec<usize>>().unwrap(),
+            ref_coords.extract::<Vec<usize>>().unwrap(),
             ref_coord_start, 
             tr_start_pos, 
             tr_end_pos, 
@@ -251,7 +300,7 @@ pub fn get_read_snvs<'py>(
             max_snv_group_size, 
             entropy_flank_size, 
             entropy_threshold,
-        )
+        ).into_py_dict(py)
     } else {
         snvs.into_py_dict(py)
     }
