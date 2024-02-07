@@ -8,27 +8,33 @@ static GAP_CHAR_ORD: usize  = ('-' as u8) as usize;
 
 #[pyfunction]
 pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
-    let scoring = Scoring::new(-1, 0, |a: u8, b: u8| if a == b { 1i32 } else { -1i32 });
+    panic::catch_unwind(|| {
 
-    let _seqs: Vec<&[u8]> = seqs.iter().map(|s| s.as_bytes()).collect();
-    let mut _seqs_iter: Vec<&[u8]> = _seqs.clone();
+        let scoring = Scoring::new(-1, 0, |a: u8, b: u8| if a == b { 1i32 } else { -1i32 });
 
-    let mut max_len: usize = 0;
-    let mut n_seqs: usize = 0;
+        let _seqs: Vec<&[u8]> = seqs.iter().map(|s| s.as_bytes()).collect();
 
-    _seqs_iter.pop().and_then(|x| {
-        max_len = cmp::max(max_len, x.len());
-        n_seqs += 1;
-
-        let mut aligner = Aligner::new(scoring, x);
-
-        for y in _seqs_iter {
-            max_len = cmp::max(max_len, y.len());
-            aligner.global(y).add_to_graph();
-            n_seqs += 1;
+        if _seqs.len() == 1 {
+            return Some(_seqs[0].iter().map(|&b| b as char).collect::<String>());
         }
 
-        panic::catch_unwind(|| {
+        let mut _seqs_iter: Vec<&[u8]> = _seqs.clone();
+
+        let mut max_len: usize = 0;
+        let mut n_seqs: usize = 0;
+
+        _seqs_iter.pop().and_then(|x| {
+            max_len = cmp::max(max_len, x.len());
+            n_seqs += 1;
+
+            let mut aligner = Aligner::new(scoring, x);
+
+            for y in _seqs_iter {
+                max_len = cmp::max(max_len, y.len());
+                aligner.global(y).add_to_graph();
+                n_seqs += 1;
+            }
+
             let pretty = aligner
                 .alignment()
                 .pretty(aligner.consensus().as_slice(), _seqs, aligner.graph(), max_len * 4);
@@ -65,7 +71,7 @@ pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
                 }
             }
 
-            consensus_chars.iter().collect::<String>()
-        }).ok()
-    })
+            Some(consensus_chars.iter().collect::<String>())
+        })
+    }).ok()?
 }
