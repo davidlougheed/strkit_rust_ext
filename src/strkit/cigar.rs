@@ -1,13 +1,12 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyTuple};
+use pyo3::types::PyList;
 
 #[pyfunction]
-pub fn get_aligned_pair_matches<'py>(
-    py: Python<'py>, 
+pub fn get_aligned_pair_matches(
     cigar: &PyList, 
     query_start: usize, 
     ref_start: usize,
-) -> &'py PyTuple {
+) -> (Vec<usize>, Vec<usize>) {
     let mut qi = query_start;
     let mut di = ref_start;
 
@@ -42,5 +41,5 @@ pub fn get_aligned_pair_matches<'py>(
         }
     }
 
-    PyTuple::new(py, [PyList::new(py, qi_vec), PyList::new(py, di_vec)])
+    (qi_vec, di_vec)
 }

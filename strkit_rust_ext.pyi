@@ -9,6 +9,18 @@ def consensus_seq(
 
 # locus
 
+def get_pairs_and_tr_read_coords(
+    cigar: list[tuple[int, int]],
+    segment_start: int,
+    left_flank_coord: int,
+    left_coord: int,
+    right_coord: int,
+    right_flank_coord: int,
+    motif: str,
+    motif_size: int,
+    query_seq: str,
+) -> tuple[Optional[tuple[list[int], list[int]]], int, int, int, int]: ...
+
 def process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_coord_adj: int,
     right_coord_adj: int,

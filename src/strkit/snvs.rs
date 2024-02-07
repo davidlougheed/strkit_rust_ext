@@ -318,8 +318,6 @@ pub fn calculate_useful_snvs(
             .collect();
 
     for rn in read_dict_extra.keys() {
-        // eprintln!("{}", rn);
-
         let &read_dict_extra_for_read = read_dict_extra.get(rn).unwrap();
         let snvs = read_snvs.get(rn).unwrap();
 
@@ -346,13 +344,11 @@ pub fn calculate_useful_snvs(
                     // Binary search for base from correct pair
                     //  - We go in order, so we don't have to search left of the last pair index we tried.
                     let (sb, idx) = find_base_at_pos(qs, q_coords, r_coords, snv_pos, last_pair_idx);
-                    // eprintln!("sb {} idx {}", sb, idx);
+                    // eprintln!("snv_pos {}, sb {} idx {}", snv_pos, sb, idx);
                     base = sb;
                     last_pair_idx = idx;
                 }
             }
-
-            // eprintln!("snv {} {}", snv_pos, base);
 
             // Otherwise, leave as out-of-range
 
@@ -360,7 +356,6 @@ pub fn calculate_useful_snvs(
 
             if base != SNV_OUT_OF_RANGE_CHAR && base != SNV_GAP_CHAR {
                 // Only count SNV bases where we've actually found the base for the read.
-                // eprintln!("snv {} |   {}", snv_pos, base);
                 let counter = snv_counters.get_mut(&snv_pos).unwrap();
                 let count = counter.entry(base).or_insert_with(|| 0);
                 *count += 1;
@@ -383,16 +378,14 @@ pub fn calculate_useful_snvs(
 
     // snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
 
-    snv_counters.iter().enumerate().filter_map(|(s_idx, (_, snv_counter))| {
-        // for (key, value) in snv_counter {
-        //     eprintln!("{} |    {}: {}", s_idx, key, value);
-        // }
+    let res: Vec<(usize, usize)> = sorted_snvs.iter().enumerate().filter_map(|(s_idx, s_pos)| {
+        let snv_counter = snv_counters.get(s_pos).unwrap();
 
         let n_alleles_meeting_threshold: usize = snv_counter.values().map(|&v| (v >= allele_read_threshold) as usize).sum();
         let n_reads_with_this_snv_called: usize = snv_counter.values().sum();
 
-        // eprintln!("{} {} | {} {}", allele_read_threshold, total_read_threshold, n_alleles_meeting_threshold, n_reads_with_this_snv_called);
-
         (n_alleles_meeting_threshold >= 2 && n_reads_with_this_snv_called >= total_read_threshold).then(|| (s_idx, sorted_snvs[s_idx]))
-    }).collect()
+    }).collect();
+
+    res
 }
