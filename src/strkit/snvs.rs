@@ -1,64 +1,31 @@
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyList, PyString};
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use entropy::shannon_entropy as _shannon_entropy;
 
-const SNV_GAP_CHAR: char = '_' as char;
+use crate::strkit::utils::find_coord_idx_by_ref_pos;
+
+static SNV_OUT_OF_RANGE_CHAR: char = '-';
+static SNV_GAP_CHAR: char = '_';
+
+
+// We check entropy against a threshold in order to make sure the SNVs we find are somewhat
+// useful, i.e., surrounded by a nice mixture of different bases rather than some possibly
+// mis-mappable base inside a homopolymer (I used to get results like AAAAAAAAAACAAAAAAAA
+// where one of those As could be a gap instead... really useless stuff that made it
+// through the filters.)
 
 #[pyfunction]
 pub fn shannon_entropy(data: &PyBytes) -> f32 {
     _shannon_entropy(data.as_bytes())
 }
 
-// The below function is a rewritten version of code written on time paid for by
-// McGill University, and is thus (c) McGill University 2023. 
-#[pyfunction]
-pub fn get_snvs_dbsnp(
-    candidate_snv_dict_items_flat: Vec<(usize, &str, &str, Vec<&str>)>,
-    query_sequence: &PyString,
-    pairs: Vec<(usize, usize)>,
-    tr_start_pos: usize,
-    tr_end_pos: usize,
-) -> HashMap<usize, char> {
-    let query_by_ref: HashMap<usize, usize> = pairs.iter().cloned().map(|(a, b)| (b, a)).collect();
-    let query_seq_bytes = query_sequence.to_str().unwrap().as_bytes();
-
-    let mapped_l = pairs.first().unwrap().1;
-    let mapped_r = pairs.last().unwrap().1;
-
-    let mut snvs = HashMap::<usize, char>::new();
-
-    for (pos, _id, snv_ref, snv_alts) in candidate_snv_dict_items_flat {
-        if pos < mapped_l {
-            continue;
-        } else if pos > mapped_r {
-            break;
-        } else if tr_start_pos <= pos && pos <= tr_end_pos {
-            continue;
-        }
-
-        let read_base = match query_by_ref.get(&pos) {
-            Some(&q_pos) => query_seq_bytes[q_pos] as char,
-            None => SNV_GAP_CHAR,
-        };
-
-        if read_base == snv_ref.chars().next().unwrap() || snv_alts.iter().any(|&snv_alt| {
-            read_base == snv_alt.chars().next().unwrap()
-        }) {
-            snvs.insert(pos, read_base);
-        }
-    }
-
-    snvs
-}
-
-#[pyfunction]
 pub fn get_snvs_meticulous(
     query_sequence: &str,
     ref_seq: &str,
-    query_coords: Vec<usize>,
-    ref_coords: Vec<usize>,
+    query_coords: &Vec<usize>,
+    ref_coords: &Vec<usize>,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -109,7 +76,7 @@ pub fn get_snvs_meticulous(
             if lhs_contiguous >= contiguous_threshold && rhs_contiguous >= contiguous_threshold {
                 if snv_group_len <= max_snv_group_size {
                     for &(snv_pos, snv_a) in snv_group.iter() {
-                        snvs.insert(snv_pos, snv_a).unwrap();
+                        snvs.insert(snv_pos, snv_a);
                     }
                 }
 
@@ -148,19 +115,18 @@ pub fn get_snvs_meticulous(
     let sgl = snv_group.len();
     if contiguous_threshold == 0 && sgl > 0 && sgl <= max_snv_group_size {
         for &(snv_pos, snv_a) in snv_group.iter() {
-            snvs.insert(snv_pos, snv_a).unwrap();
+            snvs.insert(snv_pos, snv_a);
         }
     }
 
     snvs
 }
 
-#[pyfunction]
 pub fn get_snvs_simple (
     query_sequence: &str,
     ref_seq: &str,
-    query_coords: Vec<usize>,
-    ref_coords: Vec<usize>,
+    query_coords: &Vec<usize>,
+    ref_coords: &Vec<usize>,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -176,13 +142,13 @@ pub fn get_snvs_simple (
     let mut res = HashMap::new();
 
     for i in 0..query_coords.len() {
-        let ref_pos = ref_coords[i];
+        let &ref_pos = ref_coords.get(i).unwrap();
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
         }
 
-        let read_pos = query_coords[i];
+        let &read_pos = query_coords.get(i).unwrap();
 
         if qry_seq_bytes[read_pos] == ref_seq_bytes[ref_pos - ref_coord_start] {
             continue;
@@ -225,8 +191,8 @@ pub fn get_read_snvs_rs(
     let snvs = get_snvs_simple(
         query_sequence, 
         ref_seq, 
-        query_coords,
-        ref_coords,
+        &query_coords,
+        &ref_coords,
         ref_coord_start, 
         tr_start_pos, 
         tr_end_pos, 
@@ -239,8 +205,8 @@ pub fn get_read_snvs_rs(
         get_snvs_meticulous(
             query_sequence, 
             ref_seq, 
-            query_coords,
-            ref_coords,
+            &query_coords,
+            &ref_coords,
             ref_coord_start, 
             tr_start_pos, 
             tr_end_pos, 
@@ -274,11 +240,14 @@ pub fn get_read_snvs<'py>(
     // surrounded by a stretch of aligned bases of a specified size on either side.
     // Returns a hash map of <position, base>
 
+    let qc = query_coords.extract::<Vec<usize>>().unwrap();
+    let rc = ref_coords.extract::<Vec<usize>>().unwrap();
+
     let snvs = get_snvs_simple(
         query_sequence.to_str().unwrap(), 
         ref_seq.to_str().unwrap(), 
-        query_coords.extract::<Vec<usize>>().unwrap(),
-        ref_coords.extract::<Vec<usize>>().unwrap(),
+        &qc,
+        &rc,
         ref_coord_start, 
         tr_start_pos, 
         tr_end_pos, 
@@ -291,8 +260,8 @@ pub fn get_read_snvs<'py>(
         get_snvs_meticulous(
             query_sequence.to_str().unwrap(), 
             ref_seq.to_str().unwrap(), 
-            query_coords.extract::<Vec<usize>>().unwrap(),
-            ref_coords.extract::<Vec<usize>>().unwrap(),
+            &qc,
+            &rc,
             ref_coord_start, 
             tr_start_pos, 
             tr_end_pos, 
@@ -304,4 +273,126 @@ pub fn get_read_snvs<'py>(
     } else {
         snvs.into_py_dict(py)
     }
+}
+
+fn find_base_at_pos(
+    query_sequence: &str, 
+    q_coords: &Vec<usize>, 
+    r_coords: &Vec<usize>, 
+    t: usize,
+    start_left: usize,
+) -> (char, usize) {
+    let (idx, found) = find_coord_idx_by_ref_pos(r_coords, t, start_left);
+
+    if found {
+        // Even if not in SNV set, it is not guaranteed to be a reference base, since
+        // it's possible it was surrounded by too much other variation during the original
+        // SNV getter algorithm.
+        let qc = query_sequence.chars().nth(q_coords[idx]).unwrap();
+        (qc, idx)
+    } else {
+        // Nothing found, so must have been a gap
+        (SNV_GAP_CHAR, idx)
+    }
+}
+
+pub fn calculate_useful_snvs(
+    read_dict_extra: HashMap<&str, &PyDict>,
+    read_q_coords: HashMap<&str, Vec<usize>>,
+    read_r_coords: HashMap<&str, Vec<usize>>,
+    read_snvs: HashMap<&str, HashMap<usize, char>>,
+    locus_snvs: HashSet<usize>,
+    min_allele_reads: usize,
+) -> Vec<(usize, usize)> {
+    // Mutates read_dict_extra - adds snv_bases keys to read entries
+
+    let n_reads = read_dict_extra.len();
+
+    let mut sorted_snvs: Vec<usize> = locus_snvs.into_iter().collect();
+    sorted_snvs.sort();
+
+    let mut snv_counters: HashMap<usize, HashMap<char, usize>> = 
+        sorted_snvs
+            .iter()
+            .map(|&s| (s, HashMap::new()))
+            .collect();
+
+    for rn in read_dict_extra.keys() {
+        // eprintln!("{}", rn);
+
+        let &read_dict_extra_for_read = read_dict_extra.get(rn).unwrap();
+        let snvs = read_snvs.get(rn).unwrap();
+
+        // Know this to not be None since we were passed only segments with non-None strings earlier
+        let qs = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
+
+        let q_coords = read_q_coords.get(rn).unwrap();
+        let r_coords = read_r_coords.get(rn).unwrap();
+
+        let segment_start = read_dict_extra_for_read.get_item("_ref_start")
+            .unwrap().unwrap().extract::<usize>().unwrap();
+        let segment_end = read_dict_extra_for_read.get_item("_ref_end")
+            .unwrap().unwrap().extract::<usize>().unwrap();
+
+        let mut snv_list: Vec<char> = Vec::new();
+        let mut last_pair_idx: usize = 0;
+
+        for &snv_pos in sorted_snvs.iter() {
+            let mut base: char = SNV_OUT_OF_RANGE_CHAR;
+            if segment_start <= snv_pos && snv_pos <= segment_end {
+                if let Some(&bb) = snvs.get(&snv_pos) {
+                    base = bb;
+                } else {
+                    // Binary search for base from correct pair
+                    //  - We go in order, so we don't have to search left of the last pair index we tried.
+                    let (sb, idx) = find_base_at_pos(qs, q_coords, r_coords, snv_pos, last_pair_idx);
+                    // eprintln!("sb {} idx {}", sb, idx);
+                    base = sb;
+                    last_pair_idx = idx;
+                }
+            }
+
+            // eprintln!("snv {} {}", snv_pos, base);
+
+            // Otherwise, leave as out-of-range
+
+            snv_list.push(base);
+
+            if base != SNV_OUT_OF_RANGE_CHAR && base != SNV_GAP_CHAR {
+                // Only count SNV bases where we've actually found the base for the read.
+                // eprintln!("snv {} |   {}", snv_pos, base);
+                let counter = snv_counters.get_mut(&snv_pos).unwrap();
+                let count = counter.entry(base).or_insert_with(|| 0);
+                *count += 1;
+            }
+        }
+
+        // TODO: set snv_bases as tuple
+        read_dict_extra_for_read.set_item("snv_bases", snv_list).unwrap();
+    }
+
+    // Enough reads to try for SNV based separation
+
+    // require 2 alleles for the SNV, both with at least 1/5 of the reads, in order to differentiate alleles.
+    // require over ~55% of the reads to have the SNV; otherwise it becomes too easy to occasionally get cases with
+    // disjoint sets of SNVs.
+
+    // TODO: parametrize proportion:
+    let allele_read_threshold = cmp::max((n_reads as f32 / 5.0).round() as usize, min_allele_reads);
+    let total_read_threshold = cmp::max((n_reads as f32 * 0.55).round() as usize, 5);  // TODO: parametrize
+
+    // snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
+
+    snv_counters.iter().enumerate().filter_map(|(s_idx, (_, snv_counter))| {
+        // for (key, value) in snv_counter {
+        //     eprintln!("{} |    {}: {}", s_idx, key, value);
+        // }
+
+        let n_alleles_meeting_threshold: usize = snv_counter.values().map(|&v| (v >= allele_read_threshold) as usize).sum();
+        let n_reads_with_this_snv_called: usize = snv_counter.values().sum();
+
+        // eprintln!("{} {} | {} {}", allele_read_threshold, total_read_threshold, n_alleles_meeting_threshold, n_reads_with_this_snv_called);
+
+        (n_alleles_meeting_threshold >= 2 && n_reads_with_this_snv_called >= total_read_threshold).then(|| (s_idx, sorted_snvs[s_idx]))
+    }).collect()
 }
