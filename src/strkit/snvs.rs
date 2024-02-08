@@ -323,13 +323,10 @@ pub fn calculate_useful_snvs(
 
     for rn in read_dict_extra.keys() {
         let &read_dict_extra_for_read = read_dict_extra.get(rn).unwrap();
-        let snvs_opt = read_snvs.get(rn);
 
-        if snvs_opt.is_none() {
+        let Some(snvs) = read_snvs.get(rn) else {
             continue;
-        }
-
-        let snvs = snvs_opt.unwrap();
+        };
 
         // Know this to not be None since we were passed only segments with non-None strings earlier
         let qs = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
