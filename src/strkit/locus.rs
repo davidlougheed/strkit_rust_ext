@@ -190,15 +190,6 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         let ref_coords = read_r_coords
             .get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
 
-        // if scl > 0 {
-        //     q_coords.drain(0..scl);
-        //     r_coords.drain(0..scl);
-        // }
-        // if scr > 0 {
-        //     q_coords.drain((q_coords.len() - scr)..q_coords.len());
-        //     r_coords.drain((r_coords.len() - scr)..r_coords.len());
-        // }
-
         let query_sequence = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
 
         let snvs = get_read_snvs_rs(
