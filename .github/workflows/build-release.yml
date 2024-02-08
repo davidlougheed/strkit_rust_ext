@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m venv env
           source env/bin/activate
-          pip install 'maturin>=1.4,<1.5' pytest
+          pip install 'maturin>=1.4,<1.5' pytest numpy
           python -m maturin develop
           pytest
       
