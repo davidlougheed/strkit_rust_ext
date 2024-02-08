@@ -1,5 +1,6 @@
+use numpy::PyArray1;
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyList, PyString};
+use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use entropy::shannon_entropy as _shannon_entropy;
@@ -24,8 +25,8 @@ pub fn shannon_entropy(data: &PyBytes) -> f32 {
 pub fn get_snvs_meticulous(
     query_sequence: &str,
     ref_seq: &str,
-    query_coords: &Vec<usize>,
-    ref_coords: &Vec<usize>,
+    query_coords: &[u64],
+    ref_coords: &[u64],
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -48,13 +49,13 @@ pub fn get_snvs_meticulous(
     let mut snvs = HashMap::new();
 
     for i in 0..(ref_coords.len()) {
-        let ref_pos = ref_coords[i];
+        let ref_pos = ref_coords[i] as usize;
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
         }
 
-        let read_pos = query_coords[i];
+        let read_pos = query_coords[i] as usize;
 
         let read_base = qry_seq_bytes[read_pos];
         let ref_base = ref_seq_bytes[ref_pos - ref_coord_start];
@@ -125,8 +126,8 @@ pub fn get_snvs_meticulous(
 pub fn get_snvs_simple (
     query_sequence: &str,
     ref_seq: &str,
-    query_coords: &Vec<usize>,
-    ref_coords: &Vec<usize>,
+    query_coords: &[u64],
+    ref_coords: &[u64],
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -142,15 +143,15 @@ pub fn get_snvs_simple (
     let mut res = HashMap::new();
 
     for i in 0..query_coords.len() {
-        let &ref_pos = ref_coords.get(i).unwrap();
+        let ref_pos = *(ref_coords.get(i).unwrap()) as usize;
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
         }
 
-        let &read_pos = query_coords.get(i).unwrap();
+        let read_pos = *(query_coords.get(i).unwrap()) as usize;
 
-        if qry_seq_bytes[read_pos] == ref_seq_bytes[ref_pos - ref_coord_start] {
+        if qry_seq_bytes[read_pos as usize] == ref_seq_bytes[ref_pos - ref_coord_start] {
             continue;
         }
 
@@ -173,8 +174,8 @@ pub fn get_snvs_simple (
 pub fn get_read_snvs_rs(
     query_sequence: &str,
     ref_seq: &str,
-    query_coords: Vec<usize>,
-    ref_coords: Vec<usize>,
+    query_coords: &[u64],
+    ref_coords: &[u64],
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -225,8 +226,8 @@ pub fn get_read_snvs<'py>(
     py: Python<'py>,
     query_sequence: &PyString,
     ref_seq: &PyString,
-    query_coords: &PyList,
-    ref_coords: &PyList,
+    query_coords: &PyArray1<u64>,
+    ref_coords: &PyArray1<u64>,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -240,8 +241,11 @@ pub fn get_read_snvs<'py>(
     // surrounded by a stretch of aligned bases of a specified size on either side.
     // Returns a hash map of <position, base>
 
-    let qc = query_coords.extract::<Vec<usize>>().unwrap();
-    let rc = ref_coords.extract::<Vec<usize>>().unwrap();
+    let qr = query_coords.readonly();
+    let rr = ref_coords.readonly();
+
+    let qc = qr.as_slice().unwrap();
+    let rc = rr.as_slice().unwrap();
 
     let snvs = get_snvs_simple(
         query_sequence.to_str().unwrap(), 
@@ -277,8 +281,8 @@ pub fn get_read_snvs<'py>(
 
 fn find_base_at_pos(
     query_sequence: &str, 
-    q_coords: &Vec<usize>, 
-    r_coords: &Vec<usize>, 
+    q_coords: &[u64], 
+    r_coords: &[u64], 
     t: usize,
     start_left: usize,
 ) -> (char, usize) {
@@ -288,7 +292,7 @@ fn find_base_at_pos(
         // Even if not in SNV set, it is not guaranteed to be a reference base, since
         // it's possible it was surrounded by too much other variation during the original
         // SNV getter algorithm.
-        let qc = query_sequence.chars().nth(q_coords[idx]).unwrap();
+        let qc = query_sequence.chars().nth(q_coords[idx] as usize).unwrap();
         (qc, idx)
     } else {
         // Nothing found, so must have been a gap
@@ -298,8 +302,8 @@ fn find_base_at_pos(
 
 pub fn calculate_useful_snvs(
     read_dict_extra: HashMap<&str, &PyDict>,
-    read_q_coords: HashMap<&str, Vec<usize>>,
-    read_r_coords: HashMap<&str, Vec<usize>>,
+    read_q_coords: &PyDict,
+    read_r_coords: &PyDict,
     read_snvs: HashMap<&str, HashMap<usize, char>>,
     locus_snvs: HashSet<usize>,
     min_allele_reads: usize,
@@ -330,8 +334,10 @@ pub fn calculate_useful_snvs(
         // Know this to not be None since we were passed only segments with non-None strings earlier
         let qs = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
 
-        let q_coords = read_q_coords.get(rn).unwrap();
-        let r_coords = read_r_coords.get(rn).unwrap();
+        let qr = read_q_coords.get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
+        let q_coords = qr.as_slice().unwrap();
+        let rr = read_r_coords.get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
+        let r_coords = rr.as_slice().unwrap();
 
         let segment_start = read_dict_extra_for_read.get_item("_ref_start")
             .unwrap().unwrap().extract::<usize>().unwrap();
@@ -350,7 +356,6 @@ pub fn calculate_useful_snvs(
                     // Binary search for base from correct pair
                     //  - We go in order, so we don't have to search left of the last pair index we tried.
                     let (sb, idx) = find_base_at_pos(qs, q_coords, r_coords, snv_pos, last_pair_idx);
-                    // eprintln!("snv_pos {}, sb {} idx {}", snv_pos, sb, idx);
                     base = sb;
                     last_pair_idx = idx;
                 }

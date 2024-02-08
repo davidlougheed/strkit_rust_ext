@@ -1,3 +1,4 @@
+use numpy::PyArray1;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 use std::collections::{HashMap, HashSet};
@@ -14,8 +15,8 @@ fn get_read_coords_from_matched_pairs(
     motif: &str,
     motif_size: i32,
     query_seq: &str,
-    q_coords: &Vec<usize>,
-    r_coords: &Vec<usize>,
+    q_coords: &[u64],
+    r_coords: &[u64],
 ) -> (i32, i32, i32, i32) {
     let mut left_flank_end: i32 = -1;
     let mut right_flank_start: i32 = -1;
@@ -82,7 +83,8 @@ fn get_read_coords_from_matched_pairs(
 }
 
 #[pyfunction]
-pub fn get_pairs_and_tr_read_coords(
+pub fn get_pairs_and_tr_read_coords<'py>(
+    py: Python<'py>,
     cigar: &PyList,
     segment_start: usize,
     left_flank_coord: i32,
@@ -92,8 +94,8 @@ pub fn get_pairs_and_tr_read_coords(
     motif: &str,
     motif_size: i32,
     query_seq: &str,
-) -> (Option<(Vec<usize>, Vec<usize>)>, i32, i32, i32, i32) {
-    let (q_coords, r_coords) = get_aligned_pair_matches(cigar, 0, segment_start);
+) -> (Option<(&'py PyArray1<u64>, &'py PyArray1<u64>)>, i32, i32, i32, i32) {
+    let (q_coords, r_coords) = get_aligned_pair_matches(py, cigar, 0, segment_start);
     let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) = get_read_coords_from_matched_pairs(
         left_flank_coord, 
         left_coord, 
@@ -102,15 +104,21 @@ pub fn get_pairs_and_tr_read_coords(
         motif,
         motif_size, 
         query_seq, 
-        &q_coords, 
-        &r_coords
+        &q_coords.readonly().as_slice().unwrap(), 
+        &r_coords.readonly().as_slice().unwrap(),
     );
 
     if left_flank_start == -1 || left_flank_end == -1 || right_flank_start == -1 || right_flank_end == -1 {
         // Avoid passing large vectors over Python-Rust boundary, return a None instead
         (None, left_flank_start, left_flank_end, right_flank_start, right_flank_end)
     } else {
-        (Some((q_coords, r_coords)), left_flank_start, left_flank_end, right_flank_start, right_flank_end)
+        (
+            Some((q_coords, r_coords)), 
+            left_flank_start, 
+            left_flank_end,
+             right_flank_start, 
+             right_flank_end,
+        )
     }
 }
 
@@ -121,8 +129,8 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_most_coord: usize,
     ref_cache: &str,
     read_dict_extra: HashMap<&str, &PyDict>,
-    read_q_coords: HashMap<&str, Vec<usize>>,
-    read_r_coords: HashMap<&str, Vec<usize>>,
+    read_q_coords: &PyDict,
+    read_r_coords: &PyDict,
     candidate_snvs_dict: &PyDict,
     min_allele_reads: usize,
     significant_clip_snv_take_in: usize,
@@ -159,7 +167,8 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             ).unwrap();
         }
 
-        let query_coords = read_q_coords.get(rn).unwrap();
+        let query_coords = read_q_coords
+            .get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
 
         let twox_takein = significant_clip_snv_take_in * 2;
         if query_coords.len() < twox_takein {
@@ -178,25 +187,25 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             continue;
         }
 
-        let mut q_coords = query_coords.clone();
-        let mut r_coords = read_r_coords.get(rn).unwrap().clone();
+        let ref_coords = read_r_coords
+            .get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
 
-        if scl > 0 {
-            q_coords.drain(0..scl);
-            r_coords.drain(0..scl);
-        }
-        if scr > 0 {
-            q_coords.drain((q_coords.len() - scr)..q_coords.len());
-            r_coords.drain((r_coords.len() - scr)..r_coords.len());
-        }
+        // if scl > 0 {
+        //     q_coords.drain(0..scl);
+        //     r_coords.drain(0..scl);
+        // }
+        // if scr > 0 {
+        //     q_coords.drain((q_coords.len() - scr)..q_coords.len());
+        //     r_coords.drain((r_coords.len() - scr)..r_coords.len());
+        // }
 
         let query_sequence = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
 
         let snvs = get_read_snvs_rs(
             query_sequence,
             ref_cache,
-            q_coords,
-            r_coords,
+            &query_coords.as_slice().unwrap()[scl..(query_coords.len() - scr)],
+            &ref_coords.as_slice().unwrap()[scl..(ref_coords.len() - scr)],
             left_most_coord,
             left_coord_adj,
             right_coord_adj,

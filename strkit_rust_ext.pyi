@@ -1,3 +1,4 @@
+import numpy.typing
 from logging import Logger
 from typing import Optional, Union
 
@@ -19,7 +20,7 @@ def get_pairs_and_tr_read_coords(
     motif: str,
     motif_size: int,
     query_seq: str,
-) -> tuple[Optional[tuple[list[int], list[int]]], int, int, int, int]: ...
+) -> tuple[Optional[tuple[numpy.typing.NDArray, numpy.typing.NDArray]], int, int, int, int]: ...
 
 def process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_coord_adj: int,
@@ -27,8 +28,8 @@ def process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_most_coord: int,
     ref_cache: str,
     read_dict_extra: dict[str, dict],
-    read_q_coords: dict[str, list[int]],
-    read_r_coords: dict[str, list[int]],
+    read_q_coords: dict[str, numpy.typing.NDArray],
+    read_r_coords: dict[str, numpy.typing.NDArray],
     candidate_snvs_dict: dict[int, dict[str, Union[str, tuple[str, ...]]]],
     min_allele_reads: int,
     significant_clip_snv_take_in: int,
