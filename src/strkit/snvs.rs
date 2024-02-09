@@ -1,9 +1,9 @@
+use bytecount;
 use numpy::PyArray1;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
 use std::cmp;
 use std::collections::{HashMap, HashSet};
-use entropy::shannon_entropy as _shannon_entropy;
 
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
@@ -17,9 +17,36 @@ static SNV_GAP_CHAR: char = '_';
 // where one of those As could be a gap instead... really useless stuff that made it
 // through the filters.)
 
+fn _byte_entropy_f32(data: &[u8], data_len: f32, byte: u8) -> f32 {
+    let count = bytecount::count(data, byte) as f32;
+    if count == 0.0f32 { 
+        0f32
+    } else {
+        let p: f32 = (count as f32) / data_len;
+        p * p.log2()
+    }
+}
+
+fn _shannon_entropy_dna(data: &[u8]) -> f32 {
+    let data_len = data.len() as f32;
+
+    // Calculate entropy based on [atgcATGC] content:
+    let entropy: f32 = 0.0 
+        - _byte_entropy_f32(data, data_len, 65u8)
+        - _byte_entropy_f32(data, data_len, 67u8)
+        - _byte_entropy_f32(data, data_len, 71u8)
+        - _byte_entropy_f32(data, data_len, 84u8)
+        - _byte_entropy_f32(data, data_len, 97u8)
+        - _byte_entropy_f32(data, data_len, 99u8)
+        - _byte_entropy_f32(data, data_len, 103u8)
+        - _byte_entropy_f32(data, data_len, 116u8);
+
+    entropy
+}
+
 #[pyfunction]
 pub fn shannon_entropy(data: &PyBytes) -> f32 {
-    _shannon_entropy(data.as_bytes())
+    _shannon_entropy_dna(data.as_bytes())
 }
 
 pub fn get_snvs_meticulous(
@@ -102,7 +129,7 @@ pub fn get_snvs_meticulous(
         if read_base != ref_base {
             // If our entropy is ok, add this to the SNV group
             let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
-            if _shannon_entropy(seq) >= entropy_threshold {
+            if _shannon_entropy_dna(seq) >= entropy_threshold {
                 snv_group.push((ref_pos, read_base as char));
             }
 
@@ -156,7 +183,7 @@ pub fn get_snvs_simple (
         }
 
         let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
-        if _shannon_entropy(seq) >= entropy_threshold {
+        if _shannon_entropy_dna(seq) >= entropy_threshold {
             n_snvs += 1;
 
             // Below it's '>=' but we can skip one set_item by using '>'

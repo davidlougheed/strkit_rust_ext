@@ -189,12 +189,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 
 [[package]]
-name = "entropy"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d68716e45ef572f351be6fad93a7bbf35242b4289a2ff75434032e5d73d74cc2"
-
-[[package]]
 name = "enum-map"
 version = "2.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -800,8 +794,9 @@ name = "strkit_rust_ext"
 version = "0.10.0"
 dependencies = [
  "bio",
- "entropy",
+ "bytecount",
  "numpy",
+ "petgraph",
  "pyo3",
 ]
 
