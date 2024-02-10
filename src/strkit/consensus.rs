@@ -2,7 +2,9 @@ use pyo3::prelude::pyfunction;
 use bio::alignment::pairwise::Scoring;
 use bio::alignment::poa::*;
 use std::cmp;
+use std::collections::HashSet;
 use std::panic;
+use strsim::normalized_levenshtein;
 
 static GAP_CHAR_ORD: usize  = ('-' as u8) as usize;
 
