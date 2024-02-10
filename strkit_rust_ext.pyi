@@ -1,12 +1,11 @@
 import numpy.typing
 from logging import Logger
-from typing import Optional, Union
+from typing import Optional, Sequence, Union
 
 # consensus
 
-def consensus_seq(
-    seqs: tuple[str, ...],
-) -> Optional[str]: ...
+def best_representatives(seqs: Sequence[str]) -> set[str]: ...
+def consensus_seq(seqs: Sequence[str]) -> Optional[str]: ...
 
 # locus
 

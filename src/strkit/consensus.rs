@@ -7,6 +7,26 @@ use std::panic;
 static GAP_CHAR_ORD: usize  = ('-' as u8) as usize;
 
 #[pyfunction]
+pub fn best_representatives(seqs: Vec<&str>) -> HashSet<&str> {
+    let mut ds = vec![0f64; seqs.len()];
+
+    for i in 0..seqs.len() {
+        for j in 0..seqs.len() {
+            if i == j { continue; }
+            ds[i] += normalized_levenshtein(seqs[i], seqs[j]);
+        }
+    }
+
+    let ms = ds.iter().max_by(|a, b| a.total_cmp(b));
+
+    ms.map(|max_score| {
+        ds.iter().enumerate().filter_map(|(i, s)| {
+            (s == max_score).then(|| seqs[i])
+        }).collect()
+    }).unwrap_or(HashSet::new())
+}
+
+#[pyfunction]
 pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
     panic::catch_unwind(|| {
 
