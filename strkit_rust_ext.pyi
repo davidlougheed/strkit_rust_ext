@@ -64,3 +64,30 @@ def get_aligned_pair_matches(
     query_start: int,
     ref_start: int,
 ) -> tuple[list[int], list[int]]: ...
+
+
+class STRkitAlignedSegment:
+    name: str
+    length: int
+    start: int
+    end: int
+    is_reverse: bool
+    query_sequence: str
+    query_qualities: NDArray[numpy.uint8]
+    raw_cigar: NDArray[numpy.uint32]
+    hp: Optional[int]
+    ps: Optional[int]
+
+
+class STRkitBAMReader:
+    references: list[str]
+
+    def __init__(self, path: str, ref_path: str): ...
+
+    def get_overlapping_segments_and_related_data(
+        self,
+        contig: str,
+        left_coord: int,
+        right_coord: int,
+        max_reads: int,
+    ) -> tuple[NDArray, NDArray[numpy.ulonglong], dict[str, int], int, int]: ...

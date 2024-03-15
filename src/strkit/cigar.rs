@@ -5,7 +5,7 @@ use pyo3::types::PyList;
 #[pyfunction]
 pub fn get_aligned_pair_matches<'py>(
     py: Python<'py>,
-    cigar: &PyList, 
+    cigar: &Bound<'py, PyList>, 
     query_start: usize, 
     ref_start: usize,
 ) -> (&'py PyArray1<u64>, &'py PyArray1<u64>) {

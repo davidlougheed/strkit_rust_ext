@@ -85,7 +85,7 @@ fn get_read_coords_from_matched_pairs(
 #[pyfunction]
 pub fn get_pairs_and_tr_read_coords<'py>(
     py: Python<'py>,
-    cigar: &PyList,
+    cigar: &Bound<'py, PyList>,
     segment_start: usize,
     left_flank_coord: i32,
     left_coord: i32,
@@ -128,10 +128,10 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     right_coord_adj: usize,
     left_most_coord: usize,
     ref_cache: &str,
-    read_dict_extra: HashMap<&str, &PyDict>,
-    read_q_coords: &PyDict,
-    read_r_coords: &PyDict,
-    candidate_snvs_dict: &PyDict,
+    read_dict_extra: HashMap<&str, Bound<PyDict>>,
+    read_q_coords: Bound<PyDict>,
+    read_r_coords: Bound<PyDict>,
+    candidate_snvs_dict: Bound<PyDict>,
     min_allele_reads: usize,
     significant_clip_snv_take_in: usize,
     only_known_snvs: bool,
@@ -147,7 +147,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     let mut read_snvs: HashMap<&str, HashMap<usize, char>> = HashMap::new();
 
     for rn in read_dict_extra.keys() {
-        let &read_dict_extra_for_read = read_dict_extra.get(rn).unwrap();
+        let read_dict_extra_for_read = read_dict_extra.get(rn).unwrap();
 
         let scl = read_dict_extra_for_read.get_item("sig_clip_left").unwrap().unwrap().extract::<usize>().unwrap();
         let scr = read_dict_extra_for_read.get_item("sig_clip_right").unwrap().unwrap().extract::<usize>().unwrap();
@@ -167,8 +167,8 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             ).unwrap();
         }
 
-        let query_coords = read_q_coords
-            .get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
+        let qca = read_q_coords.get_item(rn).unwrap().unwrap();
+        let query_coords = qca.downcast::<PyArray1<u64>>().unwrap().as_gil_ref().readonly();
 
         let twox_takein = significant_clip_snv_take_in * 2;
         if query_coords.len() < twox_takein {
@@ -187,8 +187,8 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             continue;
         }
 
-        let ref_coords = read_r_coords
-            .get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
+        let rca = read_r_coords.get_item(rn).unwrap().unwrap();
+        let ref_coords = rca.downcast::<PyArray1<u64>>().unwrap().as_gil_ref().readonly();
 
         let query_sequence = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
 

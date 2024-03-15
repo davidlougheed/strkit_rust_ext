@@ -18,7 +18,7 @@ strs_st = tuple(map(lambda s: s.decode("ascii"), strs))
 
 def main():
     dt = datetime.now()
-    for _ in range(100000):
+    for _ in range(500000):
         for s in strs:
             shannon_entropy(s)
     print(f"shannon took {datetime.now() - dt}")
@@ -29,12 +29,12 @@ def main():
     print(f"get_read_snvs took {datetime.now() - dt}")
 
     dt = datetime.now()
-    for _ in range(10000):
+    for _ in range(50000):
         list(get_aligned_pairs_from_cigar(CIGAR_OPS, 0, 100000, True))
     print(f"get_aligned_pairs_from_cigar (py) took {datetime.now() - dt}")
 
     dt = datetime.now()
-    for _ in range(10000):
+    for _ in range(50000):
         get_aligned_pair_matches(CIGAR_OPS, 0, 100000)
     print(f"get_aligned_pair_matches (rs) took {datetime.now() - dt}")
 

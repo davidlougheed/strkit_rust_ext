@@ -45,7 +45,7 @@ fn _shannon_entropy_dna(data: &[u8]) -> f32 {
 }
 
 #[pyfunction]
-pub fn shannon_entropy(data: &PyBytes) -> f32 {
+pub fn shannon_entropy(data: &Bound<'_, PyBytes>) -> f32 {
     _shannon_entropy_dna(data.as_bytes())
 }
 
@@ -251,10 +251,10 @@ pub fn get_read_snvs_rs(
 #[pyfunction]
 pub fn get_read_snvs<'py>(
     py: Python<'py>,
-    query_sequence: &PyString,
-    ref_seq: &PyString,
-    query_coords: &PyArray1<u64>,
-    ref_coords: &PyArray1<u64>,
+    query_sequence: Bound<'py, PyString>,
+    ref_seq: Bound<'py, PyString>,
+    query_coords: Bound<'py, PyArray1<u64>>,
+    ref_coords: Bound<'py, PyArray1<u64>>,
     ref_coord_start: usize,
     tr_start_pos: usize,
     tr_end_pos: usize,
@@ -263,13 +263,13 @@ pub fn get_read_snvs<'py>(
     too_many_snvs_threshold: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> &'py PyDict {
+) -> Bound<'py, PyDict> {
     // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
     // surrounded by a stretch of aligned bases of a specified size on either side.
     // Returns a hash map of <position, base>
 
-    let qr = query_coords.readonly();
-    let rr = ref_coords.readonly();
+    let qr = query_coords.into_gil_ref().readonly();
+    let rr = ref_coords.into_gil_ref().readonly();
 
     let qc = qr.as_slice().unwrap();
     let rc = rr.as_slice().unwrap();
@@ -300,9 +300,9 @@ pub fn get_read_snvs<'py>(
             max_snv_group_size, 
             entropy_flank_size, 
             entropy_threshold,
-        ).into_py_dict(py)
+        ).into_py_dict_bound(py)
     } else {
-        snvs.into_py_dict(py)
+        snvs.into_py_dict_bound(py)
     }
 }
 
@@ -328,9 +328,9 @@ fn find_base_at_pos(
 }
 
 pub fn calculate_useful_snvs(
-    read_dict_extra: HashMap<&str, &PyDict>,
-    read_q_coords: &PyDict,
-    read_r_coords: &PyDict,
+    read_dict_extra: HashMap<&str, Bound<'_, PyDict>>,
+    read_q_coords: Bound<'_, PyDict>,
+    read_r_coords: Bound<'_, PyDict>,
     read_snvs: HashMap<&str, HashMap<usize, char>>,
     locus_snvs: HashSet<usize>,
     min_allele_reads: usize,
@@ -349,7 +349,7 @@ pub fn calculate_useful_snvs(
             .collect();
 
     for rn in read_dict_extra.keys() {
-        let &read_dict_extra_for_read = read_dict_extra.get(rn).unwrap();
+        let read_dict_extra_for_read = read_dict_extra.get(rn).unwrap();
 
         let Some(snvs) = read_snvs.get(rn) else {
             continue;
@@ -358,9 +358,18 @@ pub fn calculate_useful_snvs(
         // Know this to not be None since we were passed only segments with non-None strings earlier
         let qs = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
 
-        let qr = read_q_coords.get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
+        let qrt = read_q_coords
+            .get_item(rn)
+            .unwrap()
+            .unwrap();
+        let qr = qrt
+            .downcast::<PyArray1<u64>>()
+            .unwrap()
+            .as_gil_ref()
+            .readonly();
         let q_coords = qr.as_slice().unwrap();
-        let rr = read_r_coords.get_item(rn).unwrap().unwrap().downcast::<PyArray1<u64>>().unwrap().readonly();
+        let rrt = read_r_coords.get_item(rn).unwrap().unwrap();
+        let rr = rrt.downcast::<PyArray1<u64>>().unwrap().as_gil_ref().readonly();
         let r_coords = rr.as_slice().unwrap();
 
         let segment_start = read_dict_extra_for_read.get_item("_ref_start")

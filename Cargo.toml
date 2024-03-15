@@ -11,8 +11,10 @@ crate-type = ["cdylib"]
 [dependencies]
 # bio = "1.5.0"
 bio = { git = "https://github.com/rust-bio/rust-bio.git", rev = "440cb1c" }
-numpy = "0.20"
-pyo3 = "0.20.2"
+# numpy = "0.20"
+numpy = { git = "https://github.com/PyO3/rust-numpy.git", rev = "f5930b6" } 
+pyo3 = "0.21.0-beta"
 petgraph = "*"
 bytecount = "0.6.7"
+rust-htslib = "0.45"
 strsim = "0.11"
