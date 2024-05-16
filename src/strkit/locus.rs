@@ -1,4 +1,4 @@
-use numpy::PyArray1;
+use numpy::{PyArray1, PyArrayMethods};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 use std::collections::{HashMap, HashSet};
@@ -94,7 +94,7 @@ pub fn get_pairs_and_tr_read_coords<'py>(
     motif: &str,
     motif_size: i32,
     query_seq: &str,
-) -> (Option<(&'py PyArray1<u64>, &'py PyArray1<u64>)>, i32, i32, i32, i32) {
+) -> (Option<(Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>)>, i32, i32, i32, i32) {
     let (q_coords, r_coords) = get_aligned_pair_matches(py, cigar, 0, segment_start);
     let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) = get_read_coords_from_matched_pairs(
         left_flank_coord, 
@@ -168,10 +168,11 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         }
 
         let qca = read_q_coords.get_item(rn).unwrap().unwrap();
-        let query_coords = qca.downcast::<PyArray1<u64>>().unwrap().as_gil_ref().readonly();
+        let query_coords = qca.downcast::<PyArray1<u64>>().unwrap().readonly();
+        let query_coords_len = query_coords.len().unwrap();
 
         let twox_takein = significant_clip_snv_take_in * 2;
-        if query_coords.len() < twox_takein {
+        if query_coords_len < twox_takein {
             logger.call_method(
                 "warning", 
                 (
@@ -188,15 +189,15 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         }
 
         let rca = read_r_coords.get_item(rn).unwrap().unwrap();
-        let ref_coords = rca.downcast::<PyArray1<u64>>().unwrap().as_gil_ref().readonly();
+        let ref_coords = rca.downcast::<PyArray1<u64>>().unwrap().readonly();
 
         let query_sequence = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
 
         let snvs = get_read_snvs_rs(
             query_sequence,
             ref_cache,
-            &query_coords.as_slice().unwrap()[scl..(query_coords.len() - scr)],
-            &ref_coords.as_slice().unwrap()[scl..(ref_coords.len() - scr)],
+            &query_coords.as_slice().unwrap()[scl..(query_coords_len - scr)],
+            &ref_coords.as_slice().unwrap()[scl..(ref_coords.len().unwrap() - scr)],
             left_most_coord,
             left_coord_adj,
             right_coord_adj,

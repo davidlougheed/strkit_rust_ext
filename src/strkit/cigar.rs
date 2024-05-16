@@ -8,7 +8,7 @@ pub fn get_aligned_pair_matches<'py>(
     cigar: &Bound<'py, PyList>, 
     query_start: usize, 
     ref_start: usize,
-) -> (&'py PyArray1<u64>, &'py PyArray1<u64>) {
+) -> (Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>) {
     let mut qi = query_start;
     let mut di = ref_start;
 
@@ -43,5 +43,5 @@ pub fn get_aligned_pair_matches<'py>(
         }
     }
 
-    (qi_vec.to_pyarray(py), di_vec.to_pyarray(py))
+    (qi_vec.to_pyarray_bound(py), di_vec.to_pyarray_bound(py))
 }

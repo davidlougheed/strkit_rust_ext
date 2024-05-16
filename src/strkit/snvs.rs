@@ -1,5 +1,5 @@
 use bytecount;
-use numpy::PyArray1;
+use numpy::{PyArray1, PyArrayMethods};
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
 use std::cmp;
@@ -268,8 +268,8 @@ pub fn get_read_snvs<'py>(
     // surrounded by a stretch of aligned bases of a specified size on either side.
     // Returns a hash map of <position, base>
 
-    let qr = query_coords.into_gil_ref().readonly();
-    let rr = ref_coords.into_gil_ref().readonly();
+    let qr = query_coords.readonly();
+    let rr = ref_coords.readonly();
 
     let qc = qr.as_slice().unwrap();
     let rc = rr.as_slice().unwrap();
@@ -365,11 +365,10 @@ pub fn calculate_useful_snvs(
         let qr = qrt
             .downcast::<PyArray1<u64>>()
             .unwrap()
-            .as_gil_ref()
             .readonly();
         let q_coords = qr.as_slice().unwrap();
         let rrt = read_r_coords.get_item(rn).unwrap().unwrap();
-        let rr = rrt.downcast::<PyArray1<u64>>().unwrap().as_gil_ref().readonly();
+        let rr = rrt.downcast::<PyArray1<u64>>().unwrap().readonly();
         let r_coords = rr.as_slice().unwrap();
 
         let segment_start = read_dict_extra_for_read.get_item("_ref_start")

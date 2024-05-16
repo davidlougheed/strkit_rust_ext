@@ -47,13 +47,13 @@ impl STRkitAlignedSegment {
     }
 
     #[getter]
-    fn query_qualities(&self, py: Python<'_>) -> PyResult<Py<PyArray1<u8>>> {
-        Ok(PyArray1::from_slice(py, self.record.qual()).to_owned())
+    fn query_qualities<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u8>>> {
+        Ok(PyArray1::from_slice_bound(py, self.record.qual()))
     }
 
     #[getter]
-    fn raw_cigar(&self, py: Python<'_>) -> PyResult<Py<PyArray1<u32>>> {
-        Ok(PyArray1::from_slice(py, self.record.raw_cigar()).to_owned())
+    fn raw_cigar<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u32>>> {
+        Ok(PyArray1::from_slice_bound(py, self.record.raw_cigar()))
     }
 
     #[getter]
@@ -81,6 +81,7 @@ impl STRkitBAMReader {
 
         if let Ok(mut reader) = r {
             reader.set_reference(ref_path).unwrap();
+            reader.set_threads(2).unwrap();
             Ok(STRkitBAMReader { reader })
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load BAM from path: {}", path)))
@@ -100,7 +101,7 @@ impl STRkitBAMReader {
         left_coord: i64, 
         right_coord: i64,
         max_reads: usize,
-    ) -> PyResult<(&'py PyArray1<PyObject>, &'py PyArray1<usize>, HashMap<String, u8>, i64, i64)> {
+    ) -> PyResult<(Bound<'py, PyArray1<PyObject>>, usize, Bound<'py, PyArray1<usize>>, HashMap<String, u8>, i64, i64)> {
         self.reader.fetch((contig, left_coord, right_coord)).unwrap();
 
         let mut left_most_coord = 999999999999i64;
@@ -166,8 +167,9 @@ impl STRkitBAMReader {
         }
 
         Ok((
-            segments.to_pyarray(py),
-            read_lengths.to_pyarray(py),
+            segments.to_pyarray_bound(py),
+            segments.len(),
+            read_lengths.to_pyarray_bound(py),
             chimeric_read_status, 
             left_most_coord, 
             right_most_coord,
