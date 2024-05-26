@@ -411,14 +411,16 @@ pub fn calculate_useful_snvs(
 
     // Enough reads to try for SNV based separation
 
-    // require 2 alleles for the SNV, both with at least 1/5 of the reads, in order to differentiate alleles.
-    // require over ~55% of the reads to have the SNV; otherwise it becomes too easy to occasionally get cases with
+    // require 2 alleles for the SNV, both with at least 20% of the reads, in order to differentiate alleles.
+    // require over ~60% of the reads to have the SNV; otherwise it becomes too easy to occasionally get cases with
     // disjoint sets of SNVs.
 
-    // TODO: parametrize proportion:
-    let allele_read_threshold = cmp::max((n_reads as f32 / 5.0).round() as usize, min_allele_reads);
-    let total_read_threshold = cmp::max((n_reads as f32 * 0.55).round() as usize, 5);  // TODO: parametrize
+    let reads_with_snv_allele_proportion = 0.2;  // TODO: parametrize
+    let reads_with_snv_locus_proportion = 0.6;  // TODO: parametrize
 
+    let allele_read_threshold = cmp::max(
+        (n_reads as f32 * reads_with_snv_allele_proportion).round() as usize, min_allele_reads);
+    let total_read_threshold = cmp::max((n_reads as f32 * reads_with_snv_locus_proportion).round() as usize, 5);
     // snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
 
     let res: Vec<(usize, usize)> = sorted_snvs.iter().enumerate().filter_map(|(s_idx, s_pos)| {
