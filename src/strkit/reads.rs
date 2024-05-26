@@ -1,8 +1,9 @@
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use numpy::{PyArray1, ToPyArray};
-use pyo3::prelude::*;
 use pyo3::exceptions::PyValueError;
+use pyo3::intern;
+use pyo3::prelude::*;
 use rust_htslib::bam::ext::BamRecordExtensions;
 use rust_htslib::bam::{IndexedReader, Read};
 use rust_htslib::bam::record::{Aux, Record};
@@ -101,6 +102,8 @@ impl STRkitBAMReader {
         left_coord: i64, 
         right_coord: i64,
         max_reads: usize,
+        logger: Bound<PyAny>,
+        locus_log_str: &str,
     ) -> PyResult<(Bound<'py, PyArray1<PyObject>>, usize, Bound<'py, PyArray1<usize>>, HashMap<String, u8>, i64, i64)> {
         self.reader.fetch((contig, left_coord, right_coord)).unwrap();
 
@@ -125,10 +128,20 @@ impl STRkitBAMReader {
             *crs = *crs | ( if supp {2u8} else {1u8} );
             
             if supp {  // Skip supplemental alignments
+                logger.call_method(
+                    intern!(py, "debug"), 
+                    (format!("{} - skipping entry for read {} (supplemental)", locus_log_str, name),), 
+                    None,
+                ).unwrap();
                 continue;
             }
 
             if seen_reads.contains(&name) {  // Skip already-seen reads
+                logger.call_method(
+                    intern!(py, "debug"), 
+                    (format!("{} - skipping entry for read {} (already seen)", locus_log_str, name),), 
+                    None,
+                ).unwrap();
                 continue;
             }
 
