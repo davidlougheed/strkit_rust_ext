@@ -1,5 +1,6 @@
 use bytecount;
 use numpy::{PyArray1, PyArrayMethods};
+use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
 use std::cmp;
@@ -328,6 +329,7 @@ fn find_base_at_pos(
 }
 
 pub fn calculate_useful_snvs(
+    py: Python<'_>,
     read_dict_extra: HashMap<&str, Bound<'_, PyDict>>,
     read_q_coords: Bound<'_, PyDict>,
     read_r_coords: Bound<'_, PyDict>,
@@ -406,7 +408,7 @@ pub fn calculate_useful_snvs(
         }
 
         // TODO: set snv_bases as tuple
-        read_dict_extra_for_read.set_item("snv_bases", snv_list).unwrap();
+        read_dict_extra_for_read.set_item(intern!(py, "snv_bases"), snv_list).unwrap();
     }
 
     // Enough reads to try for SNV based separation

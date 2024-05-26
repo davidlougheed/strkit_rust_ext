@@ -1,4 +1,5 @@
 use numpy::{PyArray1, PyArrayMethods};
+use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 use std::collections::{HashMap, HashSet};
@@ -124,6 +125,7 @@ pub fn get_pairs_and_tr_read_coords<'py>(
 
 #[pyfunction]
 pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
+    py: Python<'_>,
     left_coord_adj: usize,
     right_coord_adj: usize,
     left_most_coord: usize,
@@ -135,7 +137,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     min_allele_reads: usize,
     significant_clip_snv_take_in: usize,
     only_known_snvs: bool,
-    logger: &PyAny,
+    logger: Bound<PyAny>,
     locus_log_str: &str,
 ) -> Vec<(usize, usize)> {
     // Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
@@ -154,7 +156,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
 
         if scl > 0 || scr > 0 {
             logger.call_method(
-                "debug", 
+                intern!(py, "debug"), 
                 (
                     format!(
                         "{} - {} has significant clipping; trimming pairs by {} bp per side for SNV-finding",
@@ -174,7 +176,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         let twox_takein = significant_clip_snv_take_in * 2;
         if query_coords_len < twox_takein {
             logger.call_method(
-                "warning", 
+                intern!(py, "warning"), 
                 (
                     format!(
                         "{} - skipping SNV calculation for '{}' (<{} pairs)",
@@ -220,5 +222,5 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
 
     // --------------------------------------------------------------------------------------------
 
-    calculate_useful_snvs(read_dict_extra, read_q_coords, read_r_coords, read_snvs, locus_snvs, min_allele_reads)
+    calculate_useful_snvs(py, read_dict_extra, read_q_coords, read_r_coords, read_snvs, locus_snvs, min_allele_reads)
 }
