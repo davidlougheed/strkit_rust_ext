@@ -14,5 +14,5 @@ bio = { git = "https://github.com/rust-bio/rust-bio.git", rev = "b1d1200" }
 numpy = "0.21"
 pyo3 = { version = "0.21", features = ["gil-refs"] }
 bytecount = "0.6.8"
-rust-htslib = "0.46"
+rust-htslib = "0.47"
 strsim = "0.11"
