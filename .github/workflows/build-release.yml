@@ -37,8 +37,6 @@ jobs:
         target: [x86_64, x86, aarch64, armv7]
     steps:
       - uses: actions/checkout@v4
-      - name: Install apt dependencies
-        run: sudo apt-get install -y libssl-dev
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -46,6 +44,21 @@ jobs:
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12
           sccache: 'true'
           manylinux: auto
+          # https://github.com/sfackler/rust-openssl/issues/2036#issuecomment-1724324145
+          before-script-linux: |
+            # If we're running on rhel centos, install needed packages.
+            if command -v yum &> /dev/null; then
+                yum update -y && yum install -y perl-core openssl openssl-devel pkgconfig libatomic
+
+                # If we're running on i686 we need to symlink libatomic
+                # in order to build openssl with -latomic flag.
+                if [[ ! -d "/usr/lib64" ]]; then
+                    ln -s /usr/lib/libatomic.so.1 /usr/lib/libatomic.so
+                fi
+            else
+                # If we're running on debian-based system.
+                apt update -y && apt-get install -y libssl-dev openssl pkg-config
+            fi
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
