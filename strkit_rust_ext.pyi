@@ -90,4 +90,6 @@ class STRkitBAMReader:
         left_coord: int,
         right_coord: int,
         max_reads: int,
+        logger: Logger,
+        locus_log_str: str,
     ) -> tuple[NDArray, int, NDArray[numpy.ulonglong], dict[str, int], int, int]: ...
