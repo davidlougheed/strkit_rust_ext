@@ -179,7 +179,7 @@ pub fn get_snvs_simple (
 
         let read_pos = *(query_coords.get(i).unwrap()) as usize;
 
-        if qry_seq_bytes[read_pos as usize] == ref_seq_bytes[ref_pos - ref_coord_start] {
+        if qry_seq_bytes[read_pos] == ref_seq_bytes[ref_pos - ref_coord_start] {
             continue;
         }
 
@@ -220,8 +220,8 @@ pub fn get_read_snvs_rs(
     let snvs = get_snvs_simple(
         query_sequence, 
         ref_seq, 
-        &query_coords,
-        &ref_coords,
+        query_coords,
+        ref_coords,
         ref_coord_start, 
         tr_start_pos, 
         tr_end_pos, 
@@ -234,8 +234,8 @@ pub fn get_read_snvs_rs(
         get_snvs_meticulous(
             query_sequence, 
             ref_seq, 
-            &query_coords,
-            &ref_coords,
+            query_coords,
+            ref_coords,
             ref_coord_start, 
             tr_start_pos, 
             tr_end_pos, 
@@ -278,8 +278,8 @@ pub fn get_read_snvs<'py>(
     let snvs = get_snvs_simple(
         query_sequence.to_str().unwrap(), 
         ref_seq.to_str().unwrap(), 
-        &qc,
-        &rc,
+        qc,
+        rc,
         ref_coord_start, 
         tr_start_pos, 
         tr_end_pos, 
@@ -292,8 +292,8 @@ pub fn get_read_snvs<'py>(
         get_snvs_meticulous(
             query_sequence.to_str().unwrap(), 
             ref_seq.to_str().unwrap(), 
-            &qc,
-            &rc,
+            qc,
+            rc,
             ref_coord_start, 
             tr_start_pos, 
             tr_end_pos, 

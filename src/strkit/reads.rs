@@ -125,7 +125,7 @@ impl STRkitBAMReader {
             // (so probably a large expansion...)
 
             let crs = chimeric_read_status.entry(name.clone()).or_insert(0u8);
-            *crs = *crs | ( if supp {2u8} else {1u8} );
+            *crs |= if supp {2u8} else {1u8};
             
             if supp {  // Skip supplemental alignments
                 logger.call_method(

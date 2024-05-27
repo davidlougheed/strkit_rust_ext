@@ -105,8 +105,8 @@ pub fn get_pairs_and_tr_read_coords<'py>(
         motif,
         motif_size, 
         query_seq, 
-        &q_coords.readonly().as_slice().unwrap(), 
-        &r_coords.readonly().as_slice().unwrap(),
+        q_coords.readonly().as_slice().unwrap(), 
+        r_coords.readonly().as_slice().unwrap(),
     );
 
     if left_flank_start == -1 || left_flank_end == -1 || right_flank_start == -1 || right_flank_end == -1 {
@@ -212,7 +212,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         );
 
         for &p in snvs.keys() {
-            if !only_known_snvs || candidate_snvs_dict.contains(&p).unwrap() {
+            if !only_known_snvs || candidate_snvs_dict.contains(p).unwrap() {
                 locus_snvs.insert(p);
             }
         }

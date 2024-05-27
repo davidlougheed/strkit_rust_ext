@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::panic;
 use strsim::normalized_levenshtein;
 
-static GAP_CHAR_ORD: usize  = ('-' as u8) as usize;
+static GAP_CHAR_ORD: usize  = b'-' as usize;
 
 #[pyfunction]
 pub fn best_representatives(seqs: Vec<&str>) -> HashSet<&str> {
@@ -22,9 +22,7 @@ pub fn best_representatives(seqs: Vec<&str>) -> HashSet<&str> {
     let ms = ds.iter().max_by(|a, b| a.total_cmp(b));
 
     ms.map(|max_score| {
-        ds.iter().enumerate().filter_map(|(i, s)| {
-            (s == max_score).then(|| seqs[i])
-        }).collect()
+        ds.iter().enumerate().filter(|&(_, s)| s == max_score).map(|(i, _)| seqs[i]).collect()
     }).unwrap_or(HashSet::new())
 }
 
@@ -45,7 +43,7 @@ pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
         let mut max_len: usize = 0;
         let mut n_seqs: usize = 0;
 
-        _seqs_iter.pop().and_then(|x| {
+        _seqs_iter.pop().map(|x| {
             max_len = cmp::max(max_len, x.len());
             n_seqs += 1;
 
@@ -61,13 +59,13 @@ pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
                 .alignment()
                 .pretty(aligner.consensus().as_slice(), _seqs, aligner.graph(), max_len * 4);
 
-            let pretty_split = pretty.split("\n").skip(1);
+            let pretty_split = pretty.split('\n').skip(1);
 
             let mut aligned_seqs: Vec<&str> = Vec::with_capacity(n_seqs);
             let mut max_aligned_len: usize = 0;
 
-            for s in pretty_split.filter(|&z| z != "") {
-                let s_seq = s.split("\t").nth(1).unwrap();
+            for s in pretty_split.filter(|&z| !z.is_empty()) {
+                let s_seq = s.split('\t').nth(1).unwrap();
                 max_aligned_len = cmp::max(max_aligned_len, s_seq.len());
                 aligned_seqs.push(s_seq);
             }
@@ -77,7 +75,7 @@ pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
             for i in 0..max_aligned_len {
                 let mut counter = [0usize; 256];
                 for &s in aligned_seqs.iter() {
-                    counter[s.bytes().nth(i).unwrap() as usize] += 1;
+                    counter[s.as_bytes()[i] as usize] += 1;
                 }
                 let mode_idx = counter
                     .iter()
@@ -93,7 +91,7 @@ pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
                 }
             }
 
-            Some(consensus_chars.iter().collect::<String>())
+            consensus_chars.iter().collect::<String>()
         })
     }).ok()?
 }
