@@ -78,7 +78,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12
-          sccache: 'true'
+          # sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -98,7 +98,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12
-          sccache: 'true'
+          # sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
