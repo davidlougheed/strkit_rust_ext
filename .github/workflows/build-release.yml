@@ -48,7 +48,7 @@ jobs:
           before-script-linux: |
             # If we're running on rhel centos, install needed packages.
             if command -v yum &> /dev/null; then
-                yum update -y && yum install -y perl-core openssl openssl-devel pkgconfig libatomic
+                yum update -y && yum install -y perl-core openssl openssl-devel pkgconfig libatomic libclang-dev
 
                 # If we're running on i686 we need to symlink libatomic
                 # in order to build openssl with -latomic flag.
@@ -73,6 +73,11 @@ jobs:
         target: [x64, x86]
     steps:
       - uses: actions/checkout@v4
+      - name: Install OpenSSL (Windows)
+        shell: powershell
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:${{ matrix.target }}-windows-static-md
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
