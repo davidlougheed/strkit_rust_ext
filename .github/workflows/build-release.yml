@@ -34,7 +34,7 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        target: [x86_64, x86, aarch64, armv7]
+        target: [x86_64, aarch64, armv7]  # no x86, was having issues with build + who cares in 2024 for scientific stuff
     steps:
       - uses: actions/checkout@v4
       - name: Build wheels
@@ -48,13 +48,13 @@ jobs:
           before-script-linux: |
             # If we're running on rhel centos, install needed packages.
             if command -v yum &> /dev/null; then
-                yum update -y && yum install -y gcc-toolset perl-core openssl openssl-devel pkgconfig libatomic llvm-toolset
+                yum update -y && yum install -y gcc perl-core openssl openssl-devel pkgconfig libatomic llvm-toolset
 
                 # If we're running on i686 we need to symlink libatomic
                 # in order to build openssl with -latomic flag.
-                if [[ ! -d "/usr/lib64" ]]; then
-                    ln -s /usr/lib/libatomic.so.1 /usr/lib/libatomic.so
-                fi
+                # if [[ ! -d "/usr/lib64" ]]; then
+                #    ln -s /usr/lib/libatomic.so.1 /usr/lib/libatomic.so
+                # fi
 
                 # make sure we have pip (https://github.com/PyO3/maturin-action/issues/249)
                 python3 -m ensurepip
