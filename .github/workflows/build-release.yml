@@ -48,7 +48,7 @@ jobs:
           before-script-linux: |
             # If we're running on rhel centos, install needed packages.
             if command -v yum &> /dev/null; then
-                yum update -y && yum install -y perl-core openssl openssl-devel pkgconfig libatomic llvm-toolset-17
+                yum update -y && yum install -y perl-core openssl openssl-devel pkgconfig libatomic llvm-toolset
 
                 # If we're running on i686 we need to symlink libatomic
                 # in order to build openssl with -latomic flag.
