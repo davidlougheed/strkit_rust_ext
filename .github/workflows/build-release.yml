@@ -34,15 +34,15 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        target: [x86_64, aarch64]  # x86, armv7 disabled for now
+        target: [x86_64]  # x86, aarch64, armv7 disabled for now
     steps:
       - uses: actions/checkout@v4
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i python3.9  # -i python3.10 -i python3.11 -i python3.12
-          # sccache: 'true'
+          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12
+          sccache: 'true'
           manylinux: '2_28'
           # https://github.com/sfackler/rust-openssl/issues/2036#issuecomment-1724324145
           before-script-linux: |
