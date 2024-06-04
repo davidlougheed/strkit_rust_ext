@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [x86_64, x86, aarch64, armv7]
+        target: [x86_64, aarch64, armv7]  # x86,
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m venv env
           source env/bin/activate
-          pip install 'maturin>=1.5,<1.6' pytest numpy
+          python -m pip install 'maturin>=1.5,<1.6' pytest numpy
           python -m maturin develop
           pytest
       
@@ -60,7 +60,7 @@ jobs:
                 python3 -m ensurepip
             else
                 # If we're running on debian-based system.
-                apt update -y && apt-get install -y libssl-dev openssl pkg-config libclang-dev python3-pip
+                apt update -y && apt-get install -y gcc-multilib libssl-dev openssl pkg-config libclang-dev python3-pip
             fi
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -68,30 +68,30 @@ jobs:
           name: wheels-linux-${{ matrix.target }}
           path: dist
 
-  windows:
-    runs-on: windows-latest
-    needs: [test]
-    strategy:
-      matrix:
-        target: [x64, x86]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install OpenSSL (Windows)
-        shell: powershell
-        run: |
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-          vcpkg install openssl:${{ matrix.target }}-windows-static-md
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12
-          # sccache: 'true'
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-windows-${{ matrix.target }}
-          path: dist
+  # windows:
+  #   runs-on: windows-latest
+  #   needs: [test]
+  #   strategy:
+  #     matrix:
+  #       target: [x64, x86]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install OpenSSL (Windows)
+  #       shell: powershell
+  #       run: |
+  #         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+  #         vcpkg install openssl:${{ matrix.target }}-windows-static-md
+  #     - name: Build wheels
+  #       uses: PyO3/maturin-action@v1
+  #       with:
+  #         target: ${{ matrix.target }}
+  #         args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12
+  #         # sccache: 'true'
+  #     - name: Upload wheels
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wheels-windows-${{ matrix.target }}
+  #         path: dist
 
   macos:
     runs-on: macos-latest
@@ -133,7 +133,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
-    needs: [linux, windows, macos, sdist]
+    needs: [linux, macos, sdist]  # windows,
     steps:
       - uses: actions/download-artifact@v4
         with:
