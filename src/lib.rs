@@ -22,6 +22,8 @@ fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<reads::STRkitBAMReader>()?;
     m.add_class::<reads::STRkitAlignedSegment>()?;
 
+    m.add_class::<snvs::CandidateSNVs>()?;
+    m.add_class::<snvs::STRkitVCFReader>()?;
     m.add_function(wrap_pyfunction!(snvs::shannon_entropy, m)?)?;
     m.add_function(wrap_pyfunction!(snvs::get_read_snvs, m)?)?;
 

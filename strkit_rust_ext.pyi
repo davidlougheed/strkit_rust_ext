@@ -1,7 +1,7 @@
 import numpy
 from logging import Logger
 from numpy.typing import NDArray
-from typing import Optional, Sequence, Union
+from typing import Literal, Optional, Sequence, Union
 
 # consensus
 
@@ -30,7 +30,7 @@ def process_read_snvs_for_locus_and_calculate_useful_snvs(
     read_dict_extra: dict[str, dict],
     read_q_coords: dict[str, NDArray[numpy.uint64]],
     read_r_coords: dict[str, NDArray[numpy.uint64]],
-    candidate_snvs_dict: dict[int, dict[str, Union[str, tuple[str, ...]]]],
+    candidate_snvs_dict: CandidateSNVs,
     min_allele_reads: int,
     significant_clip_snv_take_in: int,
     only_known_snvs: bool,
@@ -39,6 +39,23 @@ def process_read_snvs_for_locus_and_calculate_useful_snvs(
 ) -> list[tuple[int, int]]: ...
 
 # snvs
+
+class CandidateSNVs:
+    def get(self, pos: int) -> Optional[dict]: ...
+
+
+class STRkitVCFReader:
+    def __init__(self, path: str): ...
+
+    def get_candidate_snvs(
+        self,
+        snv_vcf_contigs: tuple[str, ...], 
+        snv_vcf_file_format: Literal["chr", "num", "acc", ""],
+        contig: str,
+        left_most_coord: int,
+        right_most_coord: int,
+    ): ...
+
 
 def shannon_entropy(
     seq: bytes,
@@ -65,6 +82,8 @@ def get_aligned_pair_matches(
     ref_start: int,
 ) -> tuple[list[int], list[int]]: ...
 
+
+# reads
 
 class STRkitAlignedSegment:
     name: str

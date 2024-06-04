@@ -1,8 +1,11 @@
 use bytecount;
 use numpy::{PyArray1, PyArrayMethods};
+use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
+use rust_htslib::bcf;
+use rust_htslib::bcf::Read;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 
@@ -10,6 +13,132 @@ use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 static SNV_OUT_OF_RANGE_CHAR: char = '-';
 static SNV_GAP_CHAR: char = '_';
+
+
+pub struct CandidateSNV {
+    id: String,
+    ref_base: char,
+    alts: Vec<char>,
+}
+
+#[pyclass]
+pub struct CandidateSNVs {
+    pub snvs: HashMap<usize, CandidateSNV>,
+}
+
+#[pymethods]
+impl CandidateSNVs {
+    fn get<'py>(&self, py: Python<'py>, pos: usize) -> Option<Bound<'py, PyDict>> {
+        self.snvs.get(&pos).map(move |c| {
+            [
+                ("id", c.id.to_object(py)), 
+                ("ref_base", c.ref_base.to_object(py)), 
+                ("alts", c.alts.to_object(py)),
+            ].into_py_dict_bound(py)
+        })
+    }
+}
+
+
+fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: Vec<&'x str>) -> Option<&'x str> {
+    let mut c = contig;
+    c = c.strip_prefix("chr").unwrap_or(c);
+    match c {
+        "X" => { c = "23"; }
+        "Y" => { c = "24"; }
+        "M" => { c = "12920"; }
+        _ => {}
+    };
+
+    let nc_fmt: String = format!("NC_{:06}", c);
+    c = nc_fmt.as_str();
+
+    let mut ret: Option<&str> = None;
+
+    snv_vcf_contigs.iter().for_each(|&vcf_contig| {
+        if vcf_contig.starts_with(c) {
+            ret = Some(vcf_contig);  // ret = vcf_contig;  // .to_string();
+        }
+    });
+
+    ret
+}
+
+
+#[pyclass]
+pub struct STRkitVCFReader {
+    reader: bcf::IndexedReader,
+}
+
+#[pymethods]
+impl STRkitVCFReader {
+    #[new]
+    fn py_new(path: &str) -> PyResult<Self> {
+        let r = bcf::IndexedReader::from_path(path);
+
+        if let Ok(mut reader) = r {
+            reader.set_threads(2).unwrap();
+            Ok(STRkitVCFReader { reader })
+        } else {
+            Err(PyErr::new::<PyValueError, _>(format!("Could not load VCF from path: {}", path)))
+        }
+    }
+
+    fn get_candidate_snvs<'py>(
+        &mut self,
+        py: Python<'py>,
+        snv_vcf_contigs: Vec<&str>, 
+        snv_vcf_file_format: &str, 
+        contig: &str, 
+        left_most_coord: u64,
+        right_most_coord: u64,
+    ) -> PyResult<Bound<'py, CandidateSNVs>> {
+        let header = self.reader.header();
+
+        let mut candidate_snvs = HashMap::<usize, CandidateSNV>::new();
+
+        let mut snv_contig = contig;
+        if header.name2rid(snv_contig.as_bytes()).is_err() {
+            if snv_vcf_file_format == "num" {
+                snv_contig = snv_contig.strip_prefix("chr").unwrap_or(snv_contig);
+            } else if snv_vcf_file_format == "acc" {
+                snv_contig = _human_chrom_to_refseq_accession(snv_contig, snv_vcf_contigs).unwrap();
+            }
+            // Otherwise, leave as-is
+        }
+
+        let contig_rid = header.name2rid(snv_contig.as_bytes())
+            .unwrap_or_else(|_| panic!("Could not find contig in VCF: {}", contig));
+        self.reader.fetch(contig_rid, left_most_coord, Some(right_most_coord + 1)).unwrap();
+
+        self.reader
+            .records()
+            .map(|r| r.unwrap())
+            .filter(|record| record.allele_count() >= 2)
+            .for_each(|record| {
+                let alleles = record.alleles();
+
+                let snv_ref = alleles[0];                
+                if snv_ref.len() == 1 {
+                    let snv_alts = alleles[1..]
+                        .iter()
+                        .filter(|a| a.len() == 1)
+                        .map(|aa| aa[0] as char)
+                        .collect::<Vec<char>>();
+
+                    if snv_alts.len() >= 1 {
+                        candidate_snvs.insert(record.pos() as usize, CandidateSNV { 
+                            id: String::from_utf8(record.id()).unwrap(), 
+                            ref_base: snv_ref[0] as char,
+                            alts: snv_alts,
+                        });
+                    }
+                }
+            });
+
+        Bound::new(py, CandidateSNVs { snvs: candidate_snvs })
+    }
+}
 
 
 // We check entropy against a threshold in order to make sure the SNVs we find are somewhat

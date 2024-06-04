@@ -4,8 +4,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 use std::collections::{HashMap, HashSet};
 
-use crate::cigar::get_aligned_pair_matches;
-use crate::strkit::snvs::{get_read_snvs_rs, calculate_useful_snvs};
+use crate::strkit::cigar::get_aligned_pair_matches;
+use crate::strkit::snvs::{CandidateSNVs, get_read_snvs_rs, calculate_useful_snvs};
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 fn get_read_coords_from_matched_pairs(
@@ -133,7 +133,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     read_dict_extra: HashMap<&str, Bound<PyDict>>,
     read_q_coords: Bound<PyDict>,
     read_r_coords: Bound<PyDict>,
-    candidate_snvs_dict: Bound<PyDict>,
+    candidate_snvs_dict: &Bound<'_, CandidateSNVs>,
     min_allele_reads: usize,
     significant_clip_snv_take_in: usize,
     only_known_snvs: bool,
@@ -212,7 +212,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         );
 
         for &p in snvs.keys() {
-            if !only_known_snvs || candidate_snvs_dict.contains(p).unwrap() {
+            if !only_known_snvs || candidate_snvs_dict.borrow().snvs.contains_key(&p) {
                 locus_snvs.insert(p);
             }
         }
