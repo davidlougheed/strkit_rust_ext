@@ -34,7 +34,7 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        target: [x86_64, aarch64, armv7]  # no x86, was having issues with build + who cares in 2024 for scientific stuff
+        target: [x86_64]  # x86, aarch64, armv7 disabled for now
     steps:
       - uses: actions/checkout@v4
       - name: Build wheels
