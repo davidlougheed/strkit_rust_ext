@@ -87,7 +87,7 @@ fn get_read_coords_from_matched_pairs(
 pub fn get_pairs_and_tr_read_coords<'py>(
     py: Python<'py>,
     cigar: &Bound<'py, PyList>,
-    segment_start: usize,
+    segment_start: u64,
     left_flank_coord: i32,
     left_coord: i32,
     right_coord: i32,
