@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # bio = "1.5.0"
-bio = { git = "https://github.com/rust-bio/rust-bio.git", rev = "b1d1200" }
+bio = { git = "https://github.com/lorewar2/rust-bio.git", rev = "b1d1200f2c9f58e0540d921fed15fb10a5810b3e" }
 numpy = "0.21"
 pyo3 = { version = "0.21", features = ["gil-refs"] }
 bytecount = "0.6.8"

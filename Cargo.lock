@@ -55,7 +55,7 @@ dependencies = [
 [[package]]
 name = "bio"
 version = "1.6.0"
-source = "git+https://github.com/rust-bio/rust-bio.git?rev=b1d1200#b1d1200f2c9f58e0540d921fed15fb10a5810b3e"
+source = "git+https://github.com/lorewar2/rust-bio.git?rev=b1d1200f2c9f58e0540d921fed15fb10a5810b3e#b1d1200f2c9f58e0540d921fed15fb10a5810b3e"
 dependencies = [
  "anyhow",
  "approx",
