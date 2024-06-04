@@ -15,4 +15,6 @@ numpy = "0.21"
 pyo3 = { version = "0.21", features = ["gil-refs"] }
 bytecount = "0.6.8"
 rust-htslib = "0.47"
+# force Rust-HTSlib to use vendored OpenSSL (fix Windows builds):
+openssl = { version = "0.10", features = ["vendored"] }
 strsim = "0.11"
