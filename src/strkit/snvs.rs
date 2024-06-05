@@ -454,7 +454,7 @@ fn find_base_at_pos(
     r_coords: &[u64], 
     t: usize,
     start_left: usize,
-) -> (char, usize) {
+) -> (char, usize, bool) {
     let (idx, found) = find_coord_idx_by_ref_pos(r_coords, t, start_left);
 
     if found {
@@ -462,10 +462,10 @@ fn find_base_at_pos(
         // it's possible it was surrounded by too much other variation during the original
         // SNV getter algorithm.
         let qc = query_sequence.chars().nth(q_coords[idx] as usize).unwrap();
-        (qc, idx)
+        (qc, idx, found)
     } else {
         // Nothing found, so must have been a gap
-        (SNV_GAP_CHAR, idx)
+        (SNV_GAP_CHAR, idx, found)
     }
 }
 
@@ -539,9 +539,10 @@ pub fn calculate_useful_snvs(
                 } else {
                     // Binary search for base from correct pair
                     //  - We go in order, so we don't have to search left of the last pair index we tried.
-                    let (sb, idx) = find_base_at_pos(qs, q_coords, r_coords, snv_pos, last_pair_idx);
+                    let (sb, idx, found) = find_base_at_pos(qs, q_coords, r_coords, snv_pos, last_pair_idx);
                     base = sb;
-                    qual = fqqs.borrow()[idx];
+                    // 0 === indeterminate quality for out-of-range/gaps:
+                    qual = if found { fqqs.borrow()[idx] } else { 0 };
                     last_pair_idx = idx;
                 }
             }
