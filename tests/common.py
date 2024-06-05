@@ -2,6 +2,7 @@ import numpy as np
 
 REF_SEQ = "ACACACATGGCCATAC"
 Q_SEQ = "ATCCCAAA"
+Q_QUALS = [90] * len(Q_SEQ)
 
 #         A  A       T  T       C  G       C  C       C  C       A  A       A  A       A  C
 PAIRS = [(0, 1000), (1, 1001), (2, 1003), (3, 1004), (4, 1005), (5, 1006), (6, 1008), (7, 1009)]

@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
 use rust_htslib::bcf;
 use rust_htslib::bcf::Read;
+use std::borrow::Borrow;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 
@@ -181,6 +182,7 @@ pub fn shannon_entropy(data: &Bound<'_, PyBytes>) -> f32 {
 
 pub fn get_snvs_meticulous(
     query_sequence: &str,
+    query_quals: &[u8],
     ref_seq: &str,
     query_coords: &[u64],
     ref_coords: &[u64],
@@ -191,7 +193,7 @@ pub fn get_snvs_meticulous(
     max_snv_group_size: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> HashMap<usize, char> {
+) -> HashMap<usize, (char, u8)> {
     let qry_seq_len = query_sequence.len();
 
     let qry_seq_bytes = query_sequence.as_bytes();
@@ -201,7 +203,7 @@ pub fn get_snvs_meticulous(
     let mut rhs_contiguous: usize = 0;
     let mut last_rp: Option<usize> = None;
 
-    let mut snv_group = Vec::<(usize, char)>::new();
+    let mut snv_group = Vec::<(usize, (char, u8))>::new();
 
     let mut snvs = HashMap::new();
 
@@ -260,7 +262,7 @@ pub fn get_snvs_meticulous(
             // If our entropy is ok, add this to the SNV group
             let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
             if _shannon_entropy_dna(seq) >= entropy_threshold {
-                snv_group.push((ref_pos, read_base as char));
+                snv_group.push((ref_pos, (read_base as char, query_quals[read_pos])));
             }
 
             // Don't reset either contiguous variable; instead, take this as part of a SNP group
@@ -282,6 +284,7 @@ pub fn get_snvs_meticulous(
 
 pub fn get_snvs_simple (
     query_sequence: &str,
+    query_quals: &[u8],
     ref_seq: &str,
     query_coords: &[u64],
     ref_coords: &[u64],
@@ -291,7 +294,7 @@ pub fn get_snvs_simple (
     too_many_snvs_threshold: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> HashMap<usize, char> {
+) -> HashMap<usize, (char, u8)> {
     let qry_seq_bytes = query_sequence.as_bytes();
     let qry_seq_len = qry_seq_bytes.len();
     let ref_seq_bytes = ref_seq.as_bytes();
@@ -321,7 +324,7 @@ pub fn get_snvs_simple (
                 return res;
             }
 
-            res.insert(ref_pos, qry_seq_bytes[read_pos] as char);
+            res.insert(ref_pos, (qry_seq_bytes[read_pos] as char, query_quals[read_pos]));
         }
     }
 
@@ -330,6 +333,7 @@ pub fn get_snvs_simple (
 
 pub fn get_read_snvs_rs(
     query_sequence: &str,
+    query_quals: &[u8],
     ref_seq: &str,
     query_coords: &[u64],
     ref_coords: &[u64],
@@ -341,13 +345,14 @@ pub fn get_read_snvs_rs(
     too_many_snvs_threshold: usize,
     entropy_flank_size: usize,
     entropy_threshold: f32,
-) -> HashMap<usize, char> {
+) -> HashMap<usize, (char, u8)> {
     // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
     // surrounded by a stretch of aligned bases of a specified size on either side.
     // Returns a hash map of <position, base>
 
     let snvs = get_snvs_simple(
         query_sequence, 
+        query_quals,
         ref_seq, 
         query_coords,
         ref_coords,
@@ -362,6 +367,7 @@ pub fn get_read_snvs_rs(
     if snvs.len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
         get_snvs_meticulous(
             query_sequence, 
+            query_quals,
             ref_seq, 
             query_coords,
             ref_coords,
@@ -382,6 +388,7 @@ pub fn get_read_snvs_rs(
 pub fn get_read_snvs<'py>(
     py: Python<'py>,
     query_sequence: Bound<'py, PyString>,
+    query_quals: Bound<'py, PyArray1<u8>>,
     ref_seq: Bound<'py, PyString>,
     query_coords: Bound<'py, PyArray1<u64>>,
     ref_coords: Bound<'py, PyArray1<u64>>,
@@ -398,6 +405,9 @@ pub fn get_read_snvs<'py>(
     // surrounded by a stretch of aligned bases of a specified size on either side.
     // Returns a hash map of <position, base>
 
+    let qqr = query_quals.readonly();
+    let qq = qqr.as_slice().unwrap();
+
     let qr = query_coords.readonly();
     let rr = ref_coords.readonly();
 
@@ -406,6 +416,7 @@ pub fn get_read_snvs<'py>(
 
     let snvs = get_snvs_simple(
         query_sequence.to_str().unwrap(), 
+        qq,
         ref_seq.to_str().unwrap(), 
         qc,
         rc,
@@ -420,6 +431,7 @@ pub fn get_read_snvs<'py>(
     if snvs.len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
         get_snvs_meticulous(
             query_sequence.to_str().unwrap(), 
+            qq,
             ref_seq.to_str().unwrap(), 
             qc,
             rc,
@@ -462,7 +474,7 @@ pub fn calculate_useful_snvs(
     read_dict_extra: HashMap<&str, Bound<'_, PyDict>>,
     read_q_coords: Bound<'_, PyDict>,
     read_r_coords: Bound<'_, PyDict>,
-    read_snvs: HashMap<&str, HashMap<usize, char>>,
+    read_snvs: HashMap<&str, HashMap<usize, (char, u8)>>,
     locus_snvs: HashSet<usize>,
     min_allele_reads: usize,
 ) -> Vec<(usize, usize)> {
@@ -487,7 +499,12 @@ pub fn calculate_useful_snvs(
         };
 
         // Know this to not be None since we were passed only segments with non-None strings earlier
-        let qs = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
+        let qs = read_dict_extra_for_read.get_item(intern!(py, "_qs")).unwrap().unwrap().extract::<&str>().unwrap();
+        let fqqs_i = {
+            let item = read_dict_extra_for_read.get_item(intern!(py, "_fqqs")).unwrap().unwrap();
+            item.downcast::<PyArray1<u8>>().unwrap().readonly()
+        };
+        let fqqs = fqqs_i.as_slice().unwrap();
 
         let qrt = read_q_coords
             .get_item(rn)
@@ -498,38 +515,44 @@ pub fn calculate_useful_snvs(
             .unwrap()
             .readonly();
         let q_coords = qr.as_slice().unwrap();
-        let rrt = read_r_coords.get_item(rn).unwrap().unwrap();
-        let rr = rrt.downcast::<PyArray1<u64>>().unwrap().readonly();
+        let rr = {
+            let rrt = read_r_coords.get_item(rn).unwrap().unwrap();
+            rrt.downcast::<PyArray1<u64>>().unwrap().readonly()
+        };
         let r_coords = rr.as_slice().unwrap();
 
-        let segment_start = read_dict_extra_for_read.get_item("_ref_start")
+        let segment_start = read_dict_extra_for_read.get_item(intern!(py, "_ref_start"))
             .unwrap().unwrap().extract::<usize>().unwrap();
-        let segment_end = read_dict_extra_for_read.get_item("_ref_end")
+        let segment_end = read_dict_extra_for_read.get_item(intern!(py, "_ref_end"))
             .unwrap().unwrap().extract::<usize>().unwrap();
 
-        let mut snv_list: Vec<char> = Vec::new();
+        let mut snv_list: Vec<(char, u8)> = Vec::new();
         let mut last_pair_idx: usize = 0;
 
         for &snv_pos in sorted_snvs.iter() {
             let mut base: char = SNV_OUT_OF_RANGE_CHAR;
+            let mut qual: u8 = 0;
             if segment_start <= snv_pos && snv_pos <= segment_end {
                 if let Some(&bb) = snvs.get(&snv_pos) {
-                    base = bb;
+                    base = bb.0;
+                    qual = bb.1;
                 } else {
                     // Binary search for base from correct pair
                     //  - We go in order, so we don't have to search left of the last pair index we tried.
                     let (sb, idx) = find_base_at_pos(qs, q_coords, r_coords, snv_pos, last_pair_idx);
                     base = sb;
+                    qual = fqqs.borrow()[idx];
                     last_pair_idx = idx;
                 }
             }
 
             // Otherwise, leave as out-of-range
 
-            snv_list.push(base);
+            snv_list.push((base, qual));
 
-            if base != SNV_OUT_OF_RANGE_CHAR && base != SNV_GAP_CHAR {
-                // Only count SNV bases where we've actually found the base for the read.
+            if base != SNV_OUT_OF_RANGE_CHAR && base != SNV_GAP_CHAR && qual >= 20 {
+                // Only count SNV bases where we've actually found the base for the read and it's of a high enough 
+                // quality to consider.
                 let counter = snv_counters.get_mut(&snv_pos).unwrap();
                 let count = counter.entry(base).or_insert_with(|| 0);
                 *count += 1;
@@ -543,8 +566,8 @@ pub fn calculate_useful_snvs(
     // Enough reads to try for SNV based separation
 
     // require 2 alleles for the SNV, both with at least 20% of the reads, in order to differentiate alleles.
-    // require over ~60% of the reads to have the SNV; otherwise it becomes too easy to occasionally get cases with
-    // disjoint sets of SNVs.
+    // require over ~60% of the reads to have the SNV present and at a sufficient quality; otherwise it becomes too 
+    // easy to occasionally get cases with disjoint sets of SNVs.
 
     let reads_with_snv_allele_proportion = 0.2;  // TODO: parametrize
     let reads_with_snv_locus_proportion = 0.6;  // TODO: parametrize

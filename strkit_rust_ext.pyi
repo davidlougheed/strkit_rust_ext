@@ -63,6 +63,7 @@ def shannon_entropy(
 
 def get_read_snvs(
     query_sequence: str,
+    query_quals: list[int],
     ref_seq: str,
     query_coords: list[int],
     ref_coords: list[int],

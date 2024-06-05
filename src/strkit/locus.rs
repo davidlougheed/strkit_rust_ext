@@ -146,13 +146,13 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     // Mutates: read_dict_extra
 
     let mut locus_snvs: HashSet<usize> = HashSet::new();
-    let mut read_snvs: HashMap<&str, HashMap<usize, char>> = HashMap::new();
+    let mut read_snvs: HashMap<&str, HashMap<usize, (char, u8)>> = HashMap::new();
 
     for rn in read_dict_extra.keys() {
         let read_dict_extra_for_read = read_dict_extra.get(rn).unwrap();
 
-        let scl = read_dict_extra_for_read.get_item("sig_clip_left").unwrap().unwrap().extract::<usize>().unwrap();
-        let scr = read_dict_extra_for_read.get_item("sig_clip_right").unwrap().unwrap().extract::<usize>().unwrap();
+        let scl = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_left")).unwrap().unwrap().extract::<usize>().unwrap();
+        let scr = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_right")).unwrap().unwrap().extract::<usize>().unwrap();
 
         if scl > 0 || scr > 0 {
             logger.call_method(
@@ -193,10 +193,14 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         let rca = read_r_coords.get_item(rn).unwrap().unwrap();
         let ref_coords = rca.downcast::<PyArray1<u64>>().unwrap().readonly();
 
-        let query_sequence = read_dict_extra_for_read.get_item("_qs").unwrap().unwrap().extract::<&str>().unwrap();
+        let query_sequence = read_dict_extra_for_read.get_item(intern!(py, "_qs")).unwrap().unwrap().extract::<&str>().unwrap();
+        let fqqs_i1 = read_dict_extra_for_read.get_item(intern!(py, "_fqqs")).unwrap().unwrap();
+        let fqqs_i2 = fqqs_i1.downcast::<PyArray1<u8>>().unwrap().readonly();
+        let fqqs = fqqs_i2.as_slice().unwrap();
 
         let snvs = get_read_snvs_rs(
             query_sequence,
+            fqqs,
             ref_cache,
             &query_coords.as_slice().unwrap()[scl..(query_coords_len - scr)],
             &ref_coords.as_slice().unwrap()[scl..(ref_coords.len().unwrap() - scr)],
