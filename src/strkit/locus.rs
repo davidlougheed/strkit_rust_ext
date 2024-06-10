@@ -117,8 +117,8 @@ pub fn get_pairs_and_tr_read_coords<'py>(
             Some((q_coords, r_coords)), 
             left_flank_start, 
             left_flank_end,
-             right_flank_start, 
-             right_flank_end,
+            right_flank_start, 
+            right_flank_end,
         )
     }
 }
