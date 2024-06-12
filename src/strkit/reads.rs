@@ -82,7 +82,6 @@ impl STRkitBAMReader {
 
         if let Ok(mut reader) = r {
             reader.set_reference(ref_path).unwrap();
-            reader.set_threads(2).unwrap();
             Ok(STRkitBAMReader { reader })
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load BAM from path: {}", path)))

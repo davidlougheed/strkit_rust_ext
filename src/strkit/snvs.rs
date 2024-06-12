@@ -77,8 +77,7 @@ impl STRkitVCFReader {
     fn py_new(path: &str) -> PyResult<Self> {
         let r = bcf::IndexedReader::from_path(path);
 
-        if let Ok(mut reader) = r {
-            reader.set_threads(2).unwrap();
+        if let Ok(reader) = r {
             Ok(STRkitVCFReader { reader })
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load VCF from path: {}", path)))
