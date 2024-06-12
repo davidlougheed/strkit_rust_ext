@@ -4,6 +4,7 @@ pub use crate::strkit::cigar;
 pub use crate::strkit::consensus;
 pub use crate::strkit::locus;
 pub use crate::strkit::reads;
+pub use crate::strkit::repeats;
 pub use crate::strkit::snvs;
 
 use pyo3::prelude::*;
@@ -21,6 +22,8 @@ fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<reads::STRkitBAMReader>()?;
     m.add_class::<reads::STRkitAlignedSegment>()?;
+
+    m.add_function(wrap_pyfunction!(repeats::get_repeat_count, m)?)?;
 
     m.add_class::<snvs::CandidateSNVs>()?;
     m.add_class::<snvs::STRkitVCFReader>()?;

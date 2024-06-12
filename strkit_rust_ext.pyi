@@ -113,3 +113,17 @@ class STRkitBAMReader:
         logger: Logger,
         locus_log_str: str,
     ) -> tuple[NDArray, int, NDArray[numpy.ulonglong], dict[str, int], int, int]: ...
+
+
+# repeats
+
+def get_repeat_count(
+    start_count: int, 
+    tr_seq: str, 
+    flank_left_seq: str, 
+    flank_right_seq: str, 
+    motif: str, 
+    max_iters: int, 
+    local_search_range: int, 
+    step_size: int,
+) -> tuple[tuple[int, int], int, int]: ...
