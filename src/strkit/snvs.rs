@@ -127,7 +127,7 @@ impl STRkitVCFReader {
                         .map(|aa| aa[0] as char)
                         .collect::<Vec<char>>();
 
-                    if snv_alts.len() >= 1 {
+                    if !snv_alts.is_empty() {
                         candidate_snvs.insert(record.pos() as usize, CandidateSNV { 
                             id: String::from_utf8(record.id()).unwrap(), 
                             ref_base: snv_ref[0] as char,
