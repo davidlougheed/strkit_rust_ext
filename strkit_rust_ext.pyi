@@ -81,7 +81,7 @@ def get_aligned_pair_matches(
     cigar: list[tuple[int, int]],
     query_start: int,
     ref_start: int,
-) -> tuple[list[int], list[int]]: ...
+) -> tuple[NDArray[numpy.uint64], NDArray[numpy.uint64]]: ...
 
 
 # reads
