@@ -8,6 +8,7 @@ use strsim::normalized_levenshtein;
 
 static GAP_CHAR_ORD: usize  = b'-' as usize;
 
+
 #[pyfunction]
 pub fn best_representatives(seqs: Vec<&str>) -> HashSet<&str> {
     let mut ds = vec![0f64; seqs.len()];
@@ -25,6 +26,13 @@ pub fn best_representatives(seqs: Vec<&str>) -> HashSet<&str> {
         ds.iter().enumerate().filter(|&(_, s)| s == max_score).map(|(i, _)| seqs[i]).collect()
     }).unwrap_or(HashSet::new())
 }
+
+#[pyfunction]
+pub fn best_representative(seqs: Vec<&str>) -> Option<&str> {
+    let mut res: Vec<&str> = Vec::from_iter(best_representatives(seqs).into_iter());
+    res.pop()
+}
+
 
 #[pyfunction]
 pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {

@@ -1,10 +1,15 @@
-from strkit_rust_ext import best_representatives, consensus_seq
+from strkit_rust_ext import best_representatives, best_representative, consensus_seq
 
 
 def test_best_representatives():
     assert best_representatives(()) == set()
+    assert best_representative(()) == None
+
     assert best_representatives(("AA", "AB", "AA")) == {"AA"}
+    assert best_representative(("AA", "AB", "AA")) == "AA"
+
     assert best_representatives(("AAACAAA", "AACAAA", "AAACAA")) == {"AAACAAA"}
+    assert best_representative(("AAACAAA", "AACAAA", "AAACAA")) == "AAACAAA"
 
 
 def test_consensus():
