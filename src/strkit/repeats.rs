@@ -47,8 +47,6 @@ fn score_candidate(aligner: &Aligner, motif: &str, motif_count: usize, flank_lef
     candidate.push_str(rep.as_str());
     candidate.push_str(flank_right_seq);
 
-    // eprintln!("candidate: {candidate}");
-
     aligner.align(None, candidate.as_bytes()).unwrap().get_score()
 }
 
