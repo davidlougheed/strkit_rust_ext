@@ -160,10 +160,8 @@ pub fn get_repeat_count(
                 if mr >= 0 {
                     to_explore.push((mr, true));
                 }
-            } else if bstr < size_to_explore && !explored_sizes.contains(&ml) {
-                if ml >= 0 {
-                    to_explore.push((ml, false));
-                }
+            } else if bstr < size_to_explore && !explored_sizes.contains(&ml) && ml >= 0 {
+                to_explore.push((ml, false));
             }
         } 
     }

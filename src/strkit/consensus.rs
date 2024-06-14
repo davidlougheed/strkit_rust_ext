@@ -29,7 +29,7 @@ pub fn best_representatives(seqs: Vec<&str>) -> HashSet<&str> {
 
 #[pyfunction]
 pub fn best_representative(seqs: Vec<&str>) -> Option<&str> {
-    let mut res: Vec<&str> = Vec::from_iter(best_representatives(seqs).into_iter());
+    let mut res: Vec<&str> = Vec::from_iter(best_representatives(seqs));
     res.pop()
 }
 
@@ -78,7 +78,7 @@ pub fn consensus_seq(seqs: Vec<&str>) -> Option<String> {
         }
 
         Some(
-            (0..max_aligned_len).into_iter().filter_map(|i| {
+            (0..max_aligned_len).filter_map(|i| {
                 let mut counter = [0usize; 256];
                 aligned_seqs.iter().for_each(|&s| {
                     counter[s[i] as usize] += 1;
