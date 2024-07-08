@@ -65,12 +65,14 @@ jobs:
             # https://github.com/rust-lang/rust-bindgen/issues/1229
             # https://docs.rs/cc/latest/cc/#external-configuration-via-environment-variables
 
-            echo "$TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT"
+            echo "arch details $TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT"
 
-            export CC="$TARGET_CC"
-            export AR="$TARGET_AR"
-            export CXX="$TARGET_CXX"
-            export BINDGEN_EXTRA_CLANG_ARGS="--sysroot $TARGET_SYSROOT"
+            if [[ ! -z "$TARGET_CC" ]]; then
+              export CC="$TARGET_CC"
+              export AR="$TARGET_AR"
+              export CXX="$TARGET_CXX"
+              export BINDGEN_EXTRA_CLANG_ARGS="--sysroot $TARGET_SYSROOT"
+            fi
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
