@@ -31,7 +31,7 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        target: [x86_64, aarch64]  # x86, aarch64, armv7 disabled for now
+        target: [x86_64, aarch64, armv7]  # x86, aarch64, armv7 disabled for now
     steps:
       - uses: actions/checkout@v4
       - name: Build wheels
