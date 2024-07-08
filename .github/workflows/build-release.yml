@@ -62,6 +62,9 @@ jobs:
                 # If we're running on debian-based system.
                 apt update -y && apt-get install -y gcc-multilib libssl-dev openssl pkg-config libclang-dev python3-pip
             fi
+
+            # https://github.com/rust-lang/rust-bindgen/issues/1229
+            export BINDGEN_EXTRA_CLANG_ARGS="--sysroot $TARGET_SYSROOT"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
