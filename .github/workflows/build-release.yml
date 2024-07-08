@@ -65,6 +65,8 @@ jobs:
             # https://github.com/rust-lang/rust-bindgen/issues/1229
             # https://docs.rs/cc/latest/cc/#external-configuration-via-environment-variables
 
+            echo "$TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT"
+
             export CC="$TARGET_CC"
             export AR="$TARGET_AR"
             export CXX="$TARGET_CXX"
