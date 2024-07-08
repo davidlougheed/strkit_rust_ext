@@ -63,7 +63,12 @@ jobs:
             # https://github.com/rust-cross/manylinux-cross/issues/40
             # https://github.com/rust-cross/manylinux-cross?tab=readme-ov-file#environment-variables
             # https://github.com/rust-lang/rust-bindgen/issues/1229
-            export BINDGEN_EXTRA_CLANG_ARGS="--cc $TARGET_CC --cxx $TARGET_CXX --ar $TARGET_AR --sysroot $TARGET_SYSROOT"
+            # https://docs.rs/cc/latest/cc/#external-configuration-via-environment-variables
+
+            export CC="$TARGET_CC"
+            export AR="$TARGET_AR"
+            export CXX="$TARGET_CXX"
+            export BINDGEN_EXTRA_CLANG_ARGS="--sysroot $TARGET_SYSROOT"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
