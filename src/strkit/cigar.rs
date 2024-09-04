@@ -2,13 +2,11 @@ use numpy::{ToPyArray, PyArray1};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 
-#[pyfunction]
-pub fn get_aligned_pair_matches<'py>(
-    py: Python<'py>,
+pub fn get_aligned_pair_matches_rs<'py>(
     cigar: &Bound<'py, PyList>, 
     query_start: u64, 
     ref_start: u64,
-) -> (Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>) {
+) -> (Vec<u64>, Vec<u64>) {
     let mut qi = query_start;
     let mut di = ref_start;
 
@@ -41,6 +39,19 @@ pub fn get_aligned_pair_matches<'py>(
             }
         }
     }
+
+    (qi_vec, di_vec)
+}
+
+
+#[pyfunction]
+pub fn get_aligned_pair_matches<'py>(
+    py: Python<'py>,
+    cigar: &Bound<'py, PyList>, 
+    query_start: u64, 
+    ref_start: u64,
+) -> (Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>) {
+    let (qi_vec, di_vec) = get_aligned_pair_matches_rs(cigar, query_start, ref_start);
 
     (qi_vec.to_pyarray_bound(py), di_vec.to_pyarray_bound(py))
 }

@@ -4,7 +4,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 use std::collections::{HashMap, HashSet};
 
-use crate::strkit::cigar::get_aligned_pair_matches;
+use crate::strkit::cigar::get_aligned_pair_matches_rs;
 use crate::strkit::snvs::{CandidateSNVs, get_read_snvs_rs, calculate_useful_snvs};
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
@@ -16,15 +16,9 @@ fn get_read_coords_from_matched_pairs(
     motif: &str,
     motif_size: i32,
     query_seq: &str,
-    q_coords: &[u64],
-    r_coords: &[u64],
+    q_coords: &Vec<u64>,
+    r_coords: &Vec<u64>,
 ) -> (i32, i32, i32, i32) {
-    let mut left_flank_end: i32 = -1;
-    let mut right_flank_start: i32 = -1;
-    let mut right_flank_end: i32 = -1;
-
-    let mut last_idx: i32 = -1;
-
     // Skip gaps on either side to find mapped flank indices
 
     // Binary search for left flank start ------------------------------------------------------------------------------
@@ -47,6 +41,14 @@ fn get_read_coords_from_matched_pairs(
     let left_flank_start: i32 = q_coords[lhs] as i32;
 
     // -----------------------------------------------------------------------------------------------------------------
+
+    // Binary search for right flank end -------------------------------------------------------------------------------
+
+    let mut left_flank_end: i32 = -1;
+    let mut right_flank_start: i32 = -1;
+    let mut right_flank_end: i32 = -1;
+
+    let mut last_idx: i32 = -1;
 
     for i in lhs+1..q_coords.len() {
         let query_coord = q_coords[i] as i32;
@@ -96,7 +98,7 @@ pub fn get_pairs_and_tr_read_coords<'py>(
     motif_size: i32,
     query_seq: &str,
 ) -> (Option<(Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>)>, i32, i32, i32, i32) {
-    let (q_coords, r_coords) = get_aligned_pair_matches(py, cigar, 0, segment_start);
+    let (q_coords, r_coords) = get_aligned_pair_matches_rs(cigar, 0, segment_start);
     let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) = get_read_coords_from_matched_pairs(
         left_flank_coord, 
         left_coord, 
@@ -105,16 +107,16 @@ pub fn get_pairs_and_tr_read_coords<'py>(
         motif,
         motif_size, 
         query_seq, 
-        q_coords.readonly().as_slice().unwrap(), 
-        r_coords.readonly().as_slice().unwrap(),
+        &q_coords, 
+        &r_coords,
     );
 
     if left_flank_start == -1 || left_flank_end == -1 || right_flank_start == -1 || right_flank_end == -1 {
-        // Avoid passing large vectors over Python-Rust boundary, return a None instead
+        // Avoid converting to Python objects / passing over Python-Rust boundary, return a None instead
         (None, left_flank_start, left_flank_end, right_flank_start, right_flank_end)
     } else {
         (
-            Some((q_coords, r_coords)), 
+            Some((q_coords.to_pyarray_bound(py), r_coords.to_pyarray_bound(py))), 
             left_flank_start, 
             left_flank_end,
             right_flank_start, 
