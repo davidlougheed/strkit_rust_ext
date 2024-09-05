@@ -1,4 +1,8 @@
-from strkit_rust_ext import best_representatives, best_representative, consensus_seq
+import logging
+import pytest
+from strkit_rust_ext import consensus_seq
+
+logger = logging.getLogger(__name__)
 
 
 def test_best_representatives():
@@ -12,9 +16,16 @@ def test_best_representatives():
     assert best_representative(("AAACAAA", "AACAAA", "AAACAA")) == "AAACAAA"
 
 
-def test_consensus():
-    assert consensus_seq(()) is None
-    assert consensus_seq(("AA", "AB", "AA")) == "AA"
-    assert consensus_seq(("AAACAAA", "AACAAA", "AAACAA")) == "AAACAAA"
-    assert consensus_seq(("A", "B", "C")) is None
-    assert consensus_seq(("AB", "AAA", "AB", "AB")) == "AB"
+test_params = [
+    ((), None),
+    (("", "", "", "", ""), ("", "single")),
+    (("AA", "AB", "AA"), ("AA", "poa")),
+    (("", "AA", "AA"), ("AA", )),
+    (("", "A", "A", "A", "A"), ("A", "single")),
+    (("", "A", "A", "A", "B"), ("A", "best_rep")),
+]
+
+
+@pytest.mark.parametrize(("seqs", "res"))
+def test_consensus(seqs, res):
+    assert consensus_seq(seqs, logger, 100) == res

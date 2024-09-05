@@ -14,8 +14,6 @@ use pyo3::prelude::*;
 fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(cigar::get_aligned_pair_matches, m)?)?;
 
-    m.add_function(wrap_pyfunction!(consensus::best_representatives, m)?)?;
-    m.add_function(wrap_pyfunction!(consensus::best_representative, m)?)?;
     m.add_function(wrap_pyfunction!(consensus::consensus_seq, m)?)?;
 
     m.add_function(wrap_pyfunction!(locus::get_pairs_and_tr_read_coords, m)?)?;
