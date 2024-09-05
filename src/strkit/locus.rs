@@ -16,8 +16,8 @@ fn get_read_coords_from_matched_pairs(
     motif: &str,
     motif_size: i32,
     query_seq: &str,
-    q_coords: &Vec<u64>,
-    r_coords: &Vec<u64>,
+    q_coords: &[u64],
+    r_coords: &[u64],
 ) -> (i32, i32, i32, i32) {
     // Skip gaps on either side to find mapped flank indices
 

@@ -2,8 +2,8 @@ use numpy::{ToPyArray, PyArray1};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 
-pub fn get_aligned_pair_matches_rs<'py>(
-    cigar: &Bound<'py, PyList>, 
+pub fn get_aligned_pair_matches_rs(
+    cigar: &Bound<'_, PyList>, 
     query_start: u64, 
     ref_start: u64,
 ) -> (Vec<u64>, Vec<u64>) {
