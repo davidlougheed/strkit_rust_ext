@@ -1,7 +1,7 @@
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use numpy::ndarray::Array1;
-use numpy::{PyArray1, ToPyArray, PyArrayMethods};
+use numpy::{PyArray1, ToPyArray};
 use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
