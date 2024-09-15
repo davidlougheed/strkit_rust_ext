@@ -122,19 +122,17 @@ impl STRkitBAMReader {
                     *crs |= if supp {2u8} else {1u8};
 
                     if supp {  // Skip supplemental alignments
-                        logger.call_method(
+                        logger.call_method1(
                             intern!(py, "debug"),
                             (intern!(py, "%s - skipping entry for read %s (supplemental)"), locus_log_str, name),
-                            None,
                         )?;
                         continue;
                     }
 
                     if seen_reads.contains(&name) {  // Skip already-seen reads
-                        logger.call_method(
+                        logger.call_method1(
                             intern!(py, "debug"),
                             (intern!(py, "%s - skipping entry for read %s (already seen)"), locus_log_str, name),
-                            None,
                         )?;
                         continue;
                     }

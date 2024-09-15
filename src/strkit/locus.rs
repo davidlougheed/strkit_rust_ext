@@ -168,7 +168,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         let scr = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_right")).unwrap().unwrap().extract::<usize>().unwrap();
 
         if scl > 0 || scr > 0 {
-            logger.call_method(
+            logger.call_method1(
                 intern!(py, "debug"),
                 (
                     intern!(py, "%s - %s has significant clipping; trimming pairs by %d bp per side for SNV-finding"),
@@ -176,7 +176,6 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
                     &rn,
                     significant_clip_snv_take_in,
                 ),
-                None
             )?;
         }
 
@@ -190,7 +189,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
 
         let twox_takein = significant_clip_snv_take_in * 2;
         if query_coords_len < twox_takein {
-            logger.call_method(
+            logger.call_method1(
                 intern!(py, "warning"),
                 (
                     intern!(py, "%s - skipping SNV calculation for '%s' (<%d pairs)"),
@@ -198,7 +197,6 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
                     &rn,
                     twox_takein,
                 ),
-                None
             )?;
             continue;
         }

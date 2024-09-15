@@ -108,10 +108,9 @@ fn poa_consensus_seq(seqs: &[&str]) -> Option<String> {
 fn run_best_representatives<'py>(py: Python<'py>, seqs: &[&str], logger: Bound<'py, PyAny>) -> Option<(String, &'py Bound<'py, PyString>)> {
     best_representative(seqs).map_or_else(|| {
         logger
-            .call_method(
-                intern!(py, "debug"), 
-                (intern!(py, "Got no best representative from sequences"),), 
-                None
+            .call_method1(
+                intern!(py, "debug"),
+                (intern!(py, "Got no best representative from sequences"),),
             )
             .unwrap();
         None
@@ -148,10 +147,9 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, P
     }
 
     poa_consensus_seq(&seqs_sorted).map_or_else(|| {
-        logger.call_method(
-            intern!(py, "error"), 
-            (intern!(py, "Got no consensus sequence from sequences %s; trying best representative strategy"), seqs_sorted.clone()), 
-            None
+        logger.call_method1(
+            intern!(py, "error"),
+            (intern!(py, "Got no consensus sequence from sequences %s; trying best representative strategy"), seqs_sorted.clone()),
         ).unwrap();
         run_best_representatives(py, &seqs_sorted, logger)
     }, |poa_c| Some((poa_c, intern!(py, "poa"))))
