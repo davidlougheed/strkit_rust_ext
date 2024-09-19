@@ -133,13 +133,12 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, P
     if n_blanks as f64 > (n_seqs as f64) / 2.0 {
         // blanks make up majority, so blank is the consensus
         return Some((String::from(""), intern!(py, "best_rep")));
-    } else if n_blanks > 0 {
-        // blanks make up minority, so filter them out for consensus
-        // TODO: filter seqs_l
-        n_seqs -= n_blanks;
     }
 
-    let mut seqs_sorted: Vec<&str> = seqs.clone();
+    // if blanks make up minority, filter them out for consensus
+    // sort the sequences for consistent consensus generation
+    n_seqs -= n_blanks;
+    let mut seqs_sorted: Vec<&str> = seqs.into_iter().filter(|&x| x != "").collect();
     seqs_sorted.sort();
 
     if seqs_sorted[n_seqs / 2].len() > max_mdn_poa_length {
