@@ -8,8 +8,11 @@ logger = logging.getLogger(__name__)
 test_params = [
     ((), None),
     (("", "", "", "", ""), ("", "single")),
-    (("AA", "AB", "AA"), ("AA", "poa")),
-    (("", "AA", "AA"), ("AA", "poa")),
+    (("", "", "", "", "A"), ("", "best_rep")),
+    (("AA", "AB", "AA"), ("AA", "best_rep")),
+    (("", "AA", "AA"), ("AA", "best_rep")),
+    (("", "AA", "AA", "AB"), ("AA", "best_rep")),
+    (("", "AA", "AA", "AB", "AC"), ("AA", "poa")),
     (("A", "A", "A", "A"), ("A", "single")),
     (("", "A", "A", "A", "A"), ("A", "best_rep")),
     (("", "A", "A", "A", "B"), ("A", "best_rep")),
