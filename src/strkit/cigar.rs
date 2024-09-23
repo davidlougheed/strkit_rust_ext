@@ -1,4 +1,4 @@
-use numpy::{ndarray::{stack, Array1, Array2, Axis}, PyArray1, PyArray2, PyArrayMethods, ToPyArray};
+use numpy::{PyArray1, PyArray2, PyArrayMethods, ToPyArray};
 use pyo3::prelude::*;
 
 pub fn get_aligned_pair_matches_rs(
