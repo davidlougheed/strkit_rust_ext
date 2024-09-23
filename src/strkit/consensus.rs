@@ -124,8 +124,6 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, P
 
     if seqs.is_empty() {
         return None;
-    } else if HashSet::<&str>::from_iter(seqs.clone()).len() == 1 {
-        return Some((seqs[0].to_owned(), intern!(py, "single")));
     }
 
     let n_blanks = seqs.iter().filter(|&&s| s == BLANK_STR).count();
@@ -136,22 +134,47 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, P
     }
 
     // if blanks make up minority, filter them out for consensus
-    // sort the sequences for consistent consensus generation
     n_seqs -= n_blanks;
-    let mut seqs_sorted: Vec<&str> = seqs.into_iter().filter(|&x| x != "").collect();
-    seqs_sorted.sort();
 
-    if seqs_sorted[n_seqs / 2].len() > max_mdn_poa_length {
-        return run_best_representatives(py, &seqs_sorted, logger);
+    let mut seqs_no_blanks: Vec<&str> = seqs.into_iter().filter(|&x| !x.is_empty()).collect();
+
+    let seqs_set = HashSet::<&str>::from_iter(seqs_no_blanks.clone());
+
+    match seqs_set.len() {
+        // With 1 sequence in the set, return it as the single value (if no blanks also present), or the majority value
+        // otherwise.
+        1 => Some((
+            seqs_no_blanks[0].to_owned(),
+            if n_blanks == 0 { intern!(py, "single") } else { intern!(py, "best_rep") },
+        )),
+        // With 2 sequences, return the majority representative, using the first item in the sorted deduplicated
+        // sequence vector as a tiebreaker.
+        2 => {
+            let mut seqs_set_vec: Vec<&str> = seqs_set.into_iter().collect();
+            seqs_set_vec.sort();
+            let i0_count = seqs_no_blanks.iter().filter(|&&s| s == seqs_set_vec[0]).count();
+            // Shortcut: if index 0 count < n_seqs / 2, usize cast is 1 (so we return index 1); otherwise return index 0.
+            Some((seqs_set_vec[(i0_count < n_seqs / 2) as usize].to_owned(), intern!(py, "best_rep")))
+        },
+        // Otherwise, return the POA alignment consensus or, if the sequences are too long to quickly run POA, the
+        // best representative.
+        _ => {
+            // sort the sequences for consistent consensus generation
+            seqs_no_blanks.sort();
+
+            if seqs_no_blanks[n_seqs / 2].len() > max_mdn_poa_length {
+                return run_best_representatives(py, &seqs_no_blanks, logger);
+            }
+
+            poa_consensus_seq(&seqs_no_blanks).map_or_else(|| {
+                logger.call_method1(
+                    intern!(py, "error"),
+                    (intern!(py, "Got no consensus sequence from sequences %s; trying best representative strategy"), seqs_no_blanks.clone()),
+                ).unwrap();
+                run_best_representatives(py, &seqs_no_blanks, logger)
+            }, |poa_c| Some((poa_c, intern!(py, "poa"))))
+        }
     }
-
-    poa_consensus_seq(&seqs_sorted).map_or_else(|| {
-        logger.call_method1(
-            intern!(py, "error"),
-            (intern!(py, "Got no consensus sequence from sequences %s; trying best representative strategy"), seqs_sorted.clone()),
-        ).unwrap();
-        run_best_representatives(py, &seqs_sorted, logger)
-    }, |poa_c| Some((poa_c, intern!(py, "poa"))))
 }
 
 #[cfg(test)]
