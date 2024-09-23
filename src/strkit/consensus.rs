@@ -130,7 +130,7 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, P
 
     if n_blanks as f64 > (n_seqs as f64) / 2.0 {
         // blanks make up majority, so blank is the consensus
-        return Some((String::from(""), intern!(py, "best_rep")));
+        return Some((String::from(""), if n_blanks == n_seqs { intern!(py, "single") } else { intern!(py, "best_rep") }));
     }
 
     // if blanks make up minority, filter them out for consensus
