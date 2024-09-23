@@ -48,7 +48,7 @@ class STRkitVCFReader:
 
     def get_candidate_snvs(
         self,
-        snv_vcf_contigs: tuple[str, ...], 
+        snv_vcf_contigs: tuple[str, ...],
         snv_vcf_file_format: Literal["chr", "num", "acc", ""],
         contig: str,
         left_most_coord: int,
@@ -77,7 +77,7 @@ def get_read_snvs(
 ) -> dict[int, str]: ...
 
 def get_aligned_pair_matches(
-    cigar: list[tuple[int, int]],
+    cigar: NDArray[numpy.uint32],
     query_start: int,
     ref_start: int,
 ) -> tuple[NDArray[numpy.uint64], NDArray[numpy.uint64]]: ...
@@ -117,12 +117,12 @@ class STRkitBAMReader:
 # repeats
 
 def get_repeat_count(
-    start_count: int, 
-    tr_seq: str, 
-    flank_left_seq: str, 
-    flank_right_seq: str, 
-    motif: str, 
-    max_iters: int, 
-    local_search_range: int, 
+    start_count: int,
+    tr_seq: str,
+    flank_left_seq: str,
+    flank_right_seq: str,
+    motif: str,
+    max_iters: int,
+    local_search_range: int,
     step_size: int,
 ) -> tuple[tuple[int, int], int, int]: ...

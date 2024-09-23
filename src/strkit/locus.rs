@@ -1,7 +1,7 @@
-use numpy::{ToPyArray, PyArray1, PyArrayMethods};
+use numpy::{ToPyArray, PyArray1, PyArray2, PyArrayMethods};
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyList, PyString};
+use pyo3::types::{PyAny, PyDict, PyString};
 use std::collections::{HashMap, HashSet};
 
 use crate::strkit::cigar::get_aligned_pair_matches_rs;
@@ -90,7 +90,7 @@ fn get_read_coords_from_matched_pairs(
 #[pyfunction]
 pub fn get_pairs_and_tr_read_coords<'py>(
     py: Python<'py>,
-    cigar: &Bound<'py, PyList>,
+    cigar: &Bound<'py, PyArray2<u32>>,
     segment_start: u64,
     left_flank_coord: i32,
     left_coord: i32,
