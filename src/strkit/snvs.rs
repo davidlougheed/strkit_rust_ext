@@ -318,13 +318,13 @@ pub fn get_snvs_simple (
     let entropy_threshold = useful_snvs_params.entropy_threshold;
 
     for i in 0..query_coords.len() {
-        let ref_pos = *(ref_coords.get(i).unwrap()) as usize;
+        let ref_pos = ref_coords[i] as usize;
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
         }
 
-        let read_pos = *(query_coords.get(i).unwrap()) as usize;
+        let read_pos = query_coords[i] as usize;
 
         if qry_seq_bytes[read_pos] == ref_seq_bytes[ref_pos - ref_coord_start] {
             continue;
