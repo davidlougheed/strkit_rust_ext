@@ -10,7 +10,7 @@ def consensus_seq(seqs: Sequence[str], logger: Logger, max_mdn_poa_length: int) 
 # locus
 
 def get_pairs_and_tr_read_coords(
-    cigar: list[tuple[int, int]],
+    cigar: NDArray[numpy.uint32],
     segment_start: int,
     left_flank_coord: int,
     left_coord: int,
