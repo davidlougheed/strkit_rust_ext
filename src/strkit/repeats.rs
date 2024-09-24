@@ -14,6 +14,7 @@ static DNA_MATRIX: Lazy<Matrix> = Lazy::new(|| {
 
     let dna_bases_map: HashMap<u8, i32> = DNA_BASES.iter().enumerate().map(|(i, &b)| (b, i as i32)).collect();
 
+    // Build a hashmap of IUPAC codes and which bases they represent
     let mut dna_codes: HashMap<u8, Vec<u8>> = HashMap::new();
     dna_codes.insert(b'R', vec![b'A', b'G']);
     dna_codes.insert(b'Y', vec![b'C', b'T']);
@@ -27,7 +28,8 @@ static DNA_MATRIX: Lazy<Matrix> = Lazy::new(|| {
     dna_codes.insert(b'V', vec![b'A', b'C', b'G']);
     dna_codes.insert(b'N', vec![b'A', b'C', b'G', b'T']);
 
-    dna_codes.insert(b'X', vec![b'A', b'C', b'G', b'T']);  // Special character for matching low-quality bases
+    // Special STRkit non-IUPAC character for matching low-quality bases
+    dna_codes.insert(b'X', vec![b'A', b'C', b'G', b'T']);
 
     dna_codes.iter().for_each(|(&code, code_matches)| {
         code_matches.iter().for_each(|cm| {
@@ -53,13 +55,13 @@ fn score_candidate(aligner: &Aligner, motif: &str, motif_count: usize, flank_lef
 
 #[pyfunction]
 pub fn get_repeat_count(
-    start_count: i32, 
-    tr_seq: &str, 
-    flank_left_seq: &str, 
-    flank_right_seq: &str, 
-    motif: &str, 
-    max_iters: usize, 
-    local_search_range: i32, 
+    start_count: i32,
+    tr_seq: &str,
+    flank_left_seq: &str,
+    flank_right_seq: &str,
+    motif: &str,
+    max_iters: usize,
+    local_search_range: i32,
     step_size: i32,
 ) -> ((i32, i32), usize, i32) {
     let mut db_seq = flank_left_seq.to_owned();
@@ -107,7 +109,7 @@ pub fn get_repeat_count(
 
     while !to_explore.is_empty() && n_explored < max_iters {
         let (size_to_explore, going_right) = to_explore.pop().unwrap();
-        
+
         if size_to_explore < 0 {
             continue;
         }
@@ -116,7 +118,7 @@ pub fn get_repeat_count(
 
         let mut best_size_this_round: Option<i32> = None;
         let mut best_score_this_round: i32 = -9999999;
-        
+
         let start_size = cmp::max(size_to_explore - (if !going_right || skip_search {lsr} else {0}), 0);
         let end_size = size_to_explore + (if going_right || skip_search {lsr} else {0});
 
@@ -127,7 +129,6 @@ pub fn get_repeat_count(
 
                 explored_sizes.insert(i);
                 let i_score = score_candidate(&aligner, motif, i as usize, flank_left_seq, flank_right_seq);
-                // eprintln!("{motif} {i} {i_score}");
 
                 if best_size_this_round.is_none() || i_score > best_score_this_round {
                     best_size_this_round = Some(i);
@@ -161,7 +162,7 @@ pub fn get_repeat_count(
             } else if bstr < size_to_explore && !explored_sizes.contains(&ml) && ml >= 0 {
                 to_explore.push((ml, false));
             }
-        } 
+        }
     }
 
     ((best_size, best_score), n_explored, best_size - start_count)
