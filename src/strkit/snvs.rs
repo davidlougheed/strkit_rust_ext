@@ -325,8 +325,9 @@ pub fn get_snvs_simple (
         }
 
         let read_pos = query_coords[i] as usize;
+        let qry_byte_at_pos = qry_seq_bytes[read_pos];
 
-        if qry_seq_bytes[read_pos] == ref_seq_bytes[ref_pos - ref_coord_start] {
+        if qry_byte_at_pos == ref_seq_bytes[ref_pos - ref_coord_start] {
             continue;
         }
 
@@ -339,7 +340,7 @@ pub fn get_snvs_simple (
                 return res;
             }
 
-            res.insert(ref_pos, (qry_seq_bytes[read_pos] as char, query_quals[read_pos]));
+            res.insert(ref_pos, (qry_byte_at_pos as char, query_quals[read_pos]));
         }
     }
 
