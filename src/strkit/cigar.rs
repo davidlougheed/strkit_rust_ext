@@ -9,14 +9,16 @@ pub fn get_aligned_pair_matches_rs(
     let mut qi = query_start;
     let mut di = ref_start;
 
-    let mut qi_vec: Vec<u64> = Vec::new();
-    let mut di_vec: Vec<u64> = Vec::new();
+    // Give these vectors an initial capacity that roughly matches a bit below normal HiFi read length.
+    // I'm sure there's a smarter way to do this, but this is easy and fast...
+    let mut qi_vec: Vec<u64> = Vec::with_capacity(11000);
+    let mut di_vec: Vec<u64> = Vec::with_capacity(11000);
 
     let cigar_ro = cigar.readonly();
     let cigar_arr = cigar_ro.as_array();
 
     for cigar_op_idx in 0..cigar_arr.shape()[0] {
-        let dco0 = cigar_arr[[cigar_op_idx, 0]] as u64;
+        let dco0 = cigar_arr[[cigar_op_idx, 0]];
 
         match dco0 {
             0 | 7 | 8 => {  // MATCH | SEQ_MATCH | SEQ_MISMATCH
