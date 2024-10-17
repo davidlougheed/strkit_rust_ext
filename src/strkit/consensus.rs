@@ -156,13 +156,18 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, P
             // Shortcut: if index 0 count < n_seqs / 2, usize cast is 1 (so we return index 1); otherwise return index 0.
             Some((seqs_set_vec[(i0_count < n_seqs / 2) as usize].to_owned(), intern!(py, "best_rep")))
         },
-        // Otherwise, return the POA alignment consensus or, if the sequences are too long to quickly run POA, the
-        // best representative.
+        // Otherwise, return the POA alignment consensus or, if the sequences are too long to quickly run POA, or too
+        // short to not crash the current version of rust-bio's POA function, the best representative strategy is used
+        // instead.
         _ => {
-            // sort the sequences for consistent consensus generation
-            seqs_no_blanks.sort();
+            // sort the sequences by size so we can get the median size
+            seqs_no_blanks.sort_unstable_by(|&a, &b| a.len().cmp(&b.len()));
 
-            if seqs_no_blanks[n_seqs / 2].len() > max_mdn_poa_length {
+            // if the sequences are too long to quickly run POA --> we cannot quickly run POA
+            // if the sequences are too short --> rust-bio's POA may give the wrong result or crash
+            //   -> tracking: https://github.com/rust-bio/rust-bio/pull/605
+            let mdn_seq_len = seqs_no_blanks[n_seqs / 2].len();
+            if mdn_seq_len <= 1 || mdn_seq_len > max_mdn_poa_length {
                 return run_best_representatives(py, &seqs_no_blanks, logger);
             }
 

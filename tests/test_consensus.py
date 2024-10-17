@@ -16,6 +16,8 @@ test_params = [
     (("A", "A", "A", "A"), ("A", "single")),
     (("", "A", "A", "A", "A"), ("A", "best_rep")),
     (("", "A", "A", "A", "B"), ("A", "best_rep")),
+    (("A", "A", "A", "AAA", "AAB"), ("A", "best_rep")),  # should decide on best_rep since median non-blank <= 1
+    (("", "A", "A", "AAA", "AAB"), ("AA", "poa")),
     (("AAACAAA", "AACAAA", "AAACAA"), ("AAACAAA", "poa")),
 ]
 
