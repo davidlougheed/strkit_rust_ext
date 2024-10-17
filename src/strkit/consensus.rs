@@ -174,7 +174,7 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, P
             poa_consensus_seq(&seqs_no_blanks).map_or_else(|| {
                 logger.call_method1(
                     intern!(py, "error"),
-                    (intern!(py, "Got no consensus sequence from sequences %s; trying best representative strategy"), seqs_no_blanks.clone()),
+                    (intern!(py, "Got no POA consensus sequence from sequences %s; trying best representative strategy"), seqs_no_blanks.clone()),
                 ).unwrap();
                 run_best_representatives(py, &seqs_no_blanks, logger)
             }, |poa_c| Some((poa_c, intern!(py, "poa"))))
