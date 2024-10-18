@@ -3,6 +3,7 @@ use numpy::{PyArray1, PyArrayMethods};
 use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
+use pyo3::pybacked::PyBackedStr;
 use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
 use rust_htslib::bcf;
 use rust_htslib::bcf::Read;
@@ -50,7 +51,7 @@ impl CandidateSNVs {
 }
 
 
-fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: Vec<&'x str>) -> Option<&'x str> {
+fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: &[&'x PyBackedStr]) -> Option<&'x PyBackedStr> {
     let mut c = contig;
     c = c.strip_prefix("chr").unwrap_or(c);
     match c {
@@ -63,7 +64,7 @@ fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: Vec<&'x s
     let nc_fmt: String = format!("NC_{:06}", c);
     c = nc_fmt.as_str();
 
-    let mut ret: Option<&str> = None;
+    let mut ret: Option<&PyBackedStr> = None;
 
     snv_vcf_contigs.iter().for_each(|&vcf_contig| {
         if vcf_contig.starts_with(c) {
@@ -96,7 +97,7 @@ impl STRkitVCFReader {
     fn get_candidate_snvs<'py>(
         &mut self,
         py: Python<'py>,
-        snv_vcf_contigs: Vec<&str>,
+        snv_vcf_contigs: Vec<PyBackedStr>,
         snv_vcf_file_format: &str,
         contig: &str,
         left_most_coord: u64,
@@ -106,12 +107,14 @@ impl STRkitVCFReader {
 
         let mut candidate_snvs = HashMap::<usize, CandidateSNV>::new();
 
+        let svc: Vec<&PyBackedStr> = snv_vcf_contigs.iter().collect();
+
         let mut snv_contig = contig;
         if header.name2rid(snv_contig.as_bytes()).is_err() {
             if snv_vcf_file_format == "num" {
                 snv_contig = snv_contig.strip_prefix("chr").unwrap_or(snv_contig);
             } else if snv_vcf_file_format == "acc" {
-                snv_contig = _human_chrom_to_refseq_accession(snv_contig, snv_vcf_contigs).unwrap();
+                snv_contig = _human_chrom_to_refseq_accession(snv_contig, &svc).unwrap();
             }
             // Otherwise, leave as-is
         }
@@ -510,7 +513,8 @@ pub fn calculate_useful_snvs(
         };
 
         // Know this to not be None since we were passed only segments with non-None strings earlier
-        let qs = read_dict_extra_for_read.get_item(intern!(py, "_qs"))?.unwrap().extract::<&str>()?;
+        let qsi = read_dict_extra_for_read.get_item(intern!(py, "_qs"))?.unwrap();
+        let qs = qsi.extract::<&str>()?;
         let fqqs_i =
             read_dict_extra_for_read
                 .get_item(intern!(py, "_fqqs"))?

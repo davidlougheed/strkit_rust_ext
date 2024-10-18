@@ -2,9 +2,11 @@ use bio::alignment::pairwise::Scoring;
 use bio::alignment::poa::*;
 use pyo3::intern;
 use pyo3::prelude::*;
+use pyo3::pybacked::PyBackedStr;
 use pyo3::types::PyString;
 use std::cmp;
 use std::collections::HashSet;
+use std::ops::Deref;
 use std::panic;
 use strsim::normalized_levenshtein;
 
@@ -119,14 +121,14 @@ fn run_best_representatives<'py>(py: Python<'py>, seqs: &[&str], logger: Bound<'
 
 
 #[pyfunction]
-pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, PyAny>, max_mdn_poa_length: usize) -> Option<(String, &'py Bound<'py, PyString>)> {
+pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound<'py, PyAny>, max_mdn_poa_length: usize) -> Option<(String, &'py Bound<'py, PyString>)> {
     let mut n_seqs = seqs.len();
 
     if seqs.is_empty() {
         return None;
     }
 
-    let n_blanks = seqs.iter().filter(|&&s| s == BLANK_STR).count();
+    let n_blanks = seqs.iter().filter(|&s| s == BLANK_STR).count();
 
     if n_blanks as f64 > (n_seqs as f64) / 2.0 {
         // blanks make up majority, so blank is the consensus
@@ -136,47 +138,49 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<&str>, logger: Bound<'py, P
     // if blanks make up minority, filter them out for consensus
     n_seqs -= n_blanks;
 
-    let mut seqs_no_blanks: Vec<&str> = seqs.into_iter().filter(|&x| !x.is_empty()).collect();
+    let mut seqs_no_blanks: Vec<PyBackedStr> = seqs.into_iter().filter(|x| !x.is_empty()).collect();
 
-    let seqs_set = HashSet::<&str>::from_iter(seqs_no_blanks.clone());
+    let seqs_set = HashSet::<&PyBackedStr>::from_iter(seqs_no_blanks.iter());
 
     match seqs_set.len() {
         // With 1 sequence in the set, return it as the single value (if no blanks also present), or the majority value
         // otherwise.
         1 => Some((
-            seqs_no_blanks[0].to_owned(),
+            seqs_no_blanks[0].to_string(),
             if n_blanks == 0 { intern!(py, "single") } else { intern!(py, "best_rep") },
         )),
         // With 2 sequences, return the majority representative, using the first item in the sorted deduplicated
         // sequence vector as a tiebreaker.
         2 => {
-            let mut seqs_set_vec: Vec<&str> = seqs_set.into_iter().collect();
+            let mut seqs_set_vec: Vec<&PyBackedStr> = seqs_set.into_iter().collect();
             seqs_set_vec.sort();
-            let i0_count = seqs_no_blanks.iter().filter(|&&s| s == seqs_set_vec[0]).count();
+            let i0_count = seqs_no_blanks.iter().filter(|&s| s == seqs_set_vec[0]).count();
             // Shortcut: if index 0 count < n_seqs / 2, usize cast is 1 (so we return index 1); otherwise return index 0.
-            Some((seqs_set_vec[(i0_count < n_seqs / 2) as usize].to_owned(), intern!(py, "best_rep")))
+            Some((seqs_set_vec[(i0_count < n_seqs / 2) as usize].to_string(), intern!(py, "best_rep")))
         },
         // Otherwise, return the POA alignment consensus or, if the sequences are too long to quickly run POA, or too
         // short to not crash the current version of rust-bio's POA function, the best representative strategy is used
         // instead.
         _ => {
             // sort the sequences by size so we can get the median size
-            seqs_no_blanks.sort_unstable_by(|&a, &b| a.len().cmp(&b.len()));
+            seqs_no_blanks.sort_unstable_by(|a, b| a.len().cmp(&b.len()));
+
+            let sv: Vec<&str> = seqs_no_blanks.iter().map(|s| s.deref()).collect();
 
             // if the sequences are too long to quickly run POA --> we cannot quickly run POA
             // if the sequences are too short --> rust-bio's POA may give the wrong result or crash
             //   -> tracking: https://github.com/rust-bio/rust-bio/pull/605
             let mdn_seq_len = seqs_no_blanks[n_seqs / 2].len();
             if mdn_seq_len <= 1 || mdn_seq_len > max_mdn_poa_length {
-                return run_best_representatives(py, &seqs_no_blanks, logger);
+                return run_best_representatives(py, &sv, logger);
             }
 
-            poa_consensus_seq(&seqs_no_blanks).map_or_else(|| {
+            poa_consensus_seq(&sv).map_or_else(|| {
                 logger.call_method1(
                     intern!(py, "error"),
-                    (intern!(py, "Got no POA consensus sequence from sequences %s; trying best representative strategy"), seqs_no_blanks.clone()),
+                    (intern!(py, "Got no POA consensus sequence from sequences %s; trying best representative strategy"), sv.clone()),
                 ).unwrap();
-                run_best_representatives(py, &seqs_no_blanks, logger)
+                run_best_representatives(py, &sv, logger)
             }, |poa_c| Some((poa_c, intern!(py, "poa"))))
         }
     }

@@ -204,7 +204,8 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         let rca = read_r_coords.get_item(&rn).unwrap().unwrap();
         let ref_coords = rca.downcast::<PyArray1<u64>>().unwrap().readonly();
 
-        let query_sequence = read_dict_extra_for_read.get_item(intern!(py, "_qs"))?.unwrap().extract::<&str>()?;
+        let qsi = read_dict_extra_for_read.get_item(intern!(py, "_qs"))?.unwrap();
+        let query_sequence = qsi.extract::<&str>()?;
         let fqqs_i1 = read_dict_extra_for_read.get_item(intern!(py, "_fqqs"))?.unwrap();
         let fqqs_i2 = fqqs_i1.downcast::<PyArray1<u8>>()?.readonly();
         let fqqs = fqqs_i2.as_slice()?;
