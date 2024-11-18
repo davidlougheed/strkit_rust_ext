@@ -27,23 +27,25 @@ pub struct STRkitAlignedSegment {
     _query_qualities: Array1<u8>,
     _raw_cigar: Array1<u32>,
     #[pyo3(get)]
-    hp: Option<i32>,
+    hp: Option<i64>,
     #[pyo3(get)]
-    ps: Option<i32>,
+    ps: Option<i64>,
 }
 
-fn _extract_i32_tag_value(a: Result<Aux<'_>, RustHTSlibError>) -> Option<i32> {
+fn _extract_i64_tag_value(a: Result<Aux<'_>, RustHTSlibError>) -> Option<i64> {
     match a {
         Ok(value) => {
-            if let Aux::I32(v) = value {
-                Some(v)
-            } else {
-                None
+            match value {
+                Aux::U8(v) => Some(v as i64),
+                Aux::U16(v) => Some(v as i64),
+                Aux::U32(v) => Some(v as i64),
+                Aux::I8(v) => Some(v as i64),
+                Aux::I16(v) => Some(v as i64),
+                Aux::I32(v) => Some(v as i64),
+                _ => None
             }
         },
-        Err(_) => {
-            None
-        }
+        Err(_) => None
     }
 }
 
@@ -159,8 +161,8 @@ impl STRkitBAMReader {
                         query_sequence,
                         _query_qualities: Array1::from_vec(record.qual().to_vec()),
                         _raw_cigar: Array1::from_vec(record.raw_cigar().to_vec()),
-                        hp: _extract_i32_tag_value(record.aux(b"HP")),
-                        ps: _extract_i32_tag_value(record.aux(b"PS")),
+                        hp: _extract_i64_tag_value(record.aux(b"HP")),
+                        ps: _extract_i64_tag_value(record.aux(b"PS")),
                     };
 
                     let nc = aligned_segment.name.clone();
