@@ -9,6 +9,18 @@ def consensus_seq(seqs: Sequence[str], logger: Logger, max_mdn_poa_length: int) 
 
 # locus
 
+def get_read_coords_from_matched_pairs(
+    left_flank_coord: int,
+    left_coord: int,
+    right_coord: int,
+    right_flank_coord: int,
+    motif: str,
+    motif_size: int,
+    query_seq: str,
+    q_coords: NDArray[numpy.uint64],
+    r_coords: NDArray[numpy.uint64],
+) -> tuple[int, int, int, int]: ...
+
 def get_pairs_and_tr_read_coords(
     cigar: NDArray[numpy.uint32],
     segment_start: int,

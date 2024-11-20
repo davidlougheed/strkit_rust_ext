@@ -10,7 +10,7 @@ use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 use super::snvs::UsefulSNVsParams;
 
-fn get_read_coords_from_matched_pairs(
+fn _get_read_coords_from_matched_pairs(
     left_flank_coord: i32,
     left_coord: i32,
     right_coord: i32,
@@ -88,6 +88,31 @@ fn get_read_coords_from_matched_pairs(
 }
 
 #[pyfunction]
+pub fn get_read_coords_from_matched_pairs(
+    left_flank_coord: i32,
+    left_coord: i32,
+    right_coord: i32,
+    right_flank_coord: i32,
+    motif: &str,
+    motif_size: i32,
+    query_seq: &str,
+    q_coords: &Bound<'_, PyArray1<u64>>,
+    r_coords: &Bound<'_, PyArray1<u64>>,
+) -> (i32, i32, i32, i32) {
+    _get_read_coords_from_matched_pairs(
+        left_flank_coord,
+        left_coord,
+        right_coord,
+        right_flank_coord,
+        motif,
+        motif_size,
+        query_seq,
+        q_coords.readonly().as_slice().unwrap(),
+        r_coords.readonly().as_slice().unwrap(),
+    )
+}
+
+#[pyfunction]
 pub fn get_pairs_and_tr_read_coords<'py>(
     py: Python<'py>,
     cigar: &Bound<'py, PyArray2<u32>>,
@@ -101,7 +126,7 @@ pub fn get_pairs_and_tr_read_coords<'py>(
     query_seq: &str,
 ) -> (Option<(Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>)>, i32, i32, i32, i32) {
     let (q_coords, r_coords) = get_aligned_pair_matches_rs(cigar, 0, segment_start);
-    let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) = get_read_coords_from_matched_pairs(
+    let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) = _get_read_coords_from_matched_pairs(
         left_flank_coord,
         left_coord,
         right_coord,
