@@ -590,9 +590,8 @@ pub fn calculate_useful_snvs(
     let reads_with_snv_allele_proportion = 0.2;  // TODO: parametrize
     let reads_with_snv_locus_proportion = 0.6;  // TODO: parametrize
 
-    // let allele_read_threshold = cmp::max(
-    //     (n_reads as f32 * reads_with_snv_allele_proportion).round() as usize, min_allele_reads);
-    let allele_read_threshold = min_allele_reads;
+    let allele_read_threshold = cmp::max(
+        (n_reads as f32 * reads_with_snv_allele_proportion).round() as usize, min_allele_reads);
 
     let total_read_threshold = cmp::max((n_reads as f32 * reads_with_snv_locus_proportion).round() as usize, 5);
     // snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
@@ -602,8 +601,6 @@ pub fn calculate_useful_snvs(
 
         let n_alleles_meeting_threshold: usize = snv_counter.values().map(|&v| (v >= allele_read_threshold) as usize).sum();
         let n_reads_with_this_snv_called: usize = snv_counter.values().sum();
-
-        // eprintln!("{}", n_alleles_meeting_threshold);
 
         (n_alleles_meeting_threshold >= 2 && n_reads_with_this_snv_called >= total_read_threshold).then(|| (s_idx, sorted_snvs[s_idx]))
     }).collect();
