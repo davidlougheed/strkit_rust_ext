@@ -595,7 +595,6 @@ pub fn calculate_useful_snvs(
 
     let allele_read_threshold = cmp::max(
         (n_reads as f32 * reads_with_snv_allele_proportion).round() as usize, min_allele_reads);
-
     let total_read_threshold = cmp::max((n_reads as f32 * reads_with_snv_locus_proportion).round() as usize, 5);
     // snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
 
