@@ -1,5 +1,6 @@
 use std::cmp;
 use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
 use numpy::ndarray::Array1;
 use numpy::{PyArray, PyArray1, ToPyArray};
 use pyo3::exceptions::PyValueError;
@@ -70,7 +71,7 @@ impl STRkitAlignedSegment {
 
 #[pyclass]
 pub struct STRkitBAMReader {
-    reader: IndexedReader,
+    reader: Mutex<IndexedReader>,
 }
 
 #[pymethods]
@@ -81,7 +82,7 @@ impl STRkitBAMReader {
 
         if let Ok(mut reader) = r {
             reader.set_reference(ref_path).unwrap();
-            Ok(STRkitBAMReader { reader })
+            Ok(STRkitBAMReader { reader: Mutex::new(reader) })
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load BAM from path: {}", path)))
         }
@@ -89,7 +90,8 @@ impl STRkitBAMReader {
 
     #[getter]
     fn references(&self) -> Vec<String> {
-        let names = self.reader.header().target_names();
+        let reader = self.reader.lock().unwrap();
+        let names = reader.header().target_names();
         names.into_iter().map(|n| String::from_utf8_lossy(n).to_string()).collect()
     }
 
@@ -103,7 +105,9 @@ impl STRkitBAMReader {
         logger: Bound<PyAny>,
         locus_log_str: &str,
     ) -> PyResult<(Bound<'py, PyArray1<PyObject>>, usize, Bound<'py, PyArray1<usize>>, HashMap<String, u8>, i64, i64)> {
-        self.reader.fetch((contig, left_coord, right_coord)).unwrap();
+        let mut reader = self.reader.lock().unwrap();
+
+        reader.fetch((contig, left_coord, right_coord)).unwrap();
 
         let mut left_most_coord = 999999999999i64;
         let mut right_most_coord = 0i64;
@@ -115,7 +119,7 @@ impl STRkitBAMReader {
 
         let mut record = Record::new();
 
-        while let Some(r) = self.reader.read(&mut record) {
+        while let Some(r) = reader.read(&mut record) {
             match r {
                 Ok(_) => {
                     let name = String::from_utf8_lossy(record.qname()).to_string();

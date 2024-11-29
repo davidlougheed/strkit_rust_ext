@@ -10,6 +10,7 @@ use rust_htslib::bcf::Read;
 use std::borrow::Borrow;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
 
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
@@ -78,7 +79,7 @@ fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: &[&'x PyB
 
 #[pyclass]
 pub struct STRkitVCFReader {
-    reader: bcf::IndexedReader,
+    reader: Mutex<bcf::IndexedReader>,
 }
 
 #[pymethods]
@@ -88,7 +89,7 @@ impl STRkitVCFReader {
         let r = bcf::IndexedReader::from_path(path);
 
         if let Ok(reader) = r {
-            Ok(STRkitVCFReader { reader })
+            Ok(STRkitVCFReader { reader: Mutex::new(reader) })
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load VCF from path: {}", path)))
         }
@@ -103,7 +104,9 @@ impl STRkitVCFReader {
         left_most_coord: u64,
         right_most_coord: u64,
     ) -> PyResult<Bound<'py, CandidateSNVs>> {
-        let header = self.reader.header();
+        let mut reader = self.reader.lock().unwrap();
+
+        let header = reader.header();
 
         let mut candidate_snvs = HashMap::<usize, CandidateSNV>::new();
 
@@ -121,11 +124,11 @@ impl STRkitVCFReader {
 
         let contig_rid = header.name2rid(snv_contig.as_bytes())
             .unwrap_or_else(|_| panic!("Could not find contig in VCF: {}", contig));
-        self.reader.fetch(contig_rid, left_most_coord, Some(right_most_coord + 1)).unwrap();
+        reader.fetch(contig_rid, left_most_coord, Some(right_most_coord + 1)).unwrap();
 
-        let mut record = self.reader.empty_record();
+        let mut record = reader.empty_record();
 
-        while let Some(r) = self.reader.read(&mut record) {
+        while let Some(r) = reader.read(&mut record) {
             match r {
                 Ok(_) => {
                     let alleles = record.alleles();
