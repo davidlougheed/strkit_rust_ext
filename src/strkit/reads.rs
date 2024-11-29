@@ -1,9 +1,9 @@
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use numpy::ndarray::Array1;
-use numpy::{PyArray1, ToPyArray};
+use numpy::{PyArray, PyArray1, ToPyArray};
 use pyo3::exceptions::PyValueError;
-use pyo3::intern;
+use pyo3::{intern, IntoPyObjectExt};
 use pyo3::prelude::*;
 use rust_htslib::bam::ext::BamRecordExtensions;
 use rust_htslib::bam::{IndexedReader, Read};
@@ -52,13 +52,18 @@ fn _extract_i64_tag_value(a: Result<Aux<'_>, RustHTSlibError>) -> Option<i64> {
 #[pymethods]
 impl STRkitAlignedSegment {
     #[getter]
+    fn query_sequence_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u8>>> {
+        Ok(PyArray1::from_array(py, &Array1::from_iter(self.query_sequence.clone().as_bytes().into_iter().map(|&x| x))))
+    }
+
+    #[getter]
     fn query_qualities<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u8>>> {
-        Ok(PyArray1::from_array_bound(py, &self._query_qualities))
+        Ok(PyArray1::from_array(py, &self._query_qualities))
     }
 
     #[getter]
     fn raw_cigar<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u32>>> {
-        Ok(PyArray1::from_array_bound(py, &self._raw_cigar))
+        Ok(PyArray1::from_array(py, &self._raw_cigar))
     }
 }
 
@@ -103,7 +108,7 @@ impl STRkitBAMReader {
         let mut left_most_coord = 999999999999i64;
         let mut right_most_coord = 0i64;
 
-        let mut segments: Vec<PyObject> = Vec::new();
+        let mut segments: Vec<Py<STRkitAlignedSegment>> = Vec::new();
         let mut read_lengths: Vec<usize> = Vec::new();
         let mut chimeric_read_status: HashMap<String, u8> = HashMap::new();
         let mut seen_reads: HashSet<String> = HashSet::new();
@@ -168,7 +173,7 @@ impl STRkitBAMReader {
                     let nc = aligned_segment.name.clone();
                     seen_reads.insert(nc);
 
-                    segments.push(Py::new(py, aligned_segment)?.into_py(py));
+                    segments.push(Py::new(py, aligned_segment)?);
                     read_lengths.push(length);
 
                     left_most_coord = cmp::min(left_most_coord, start);
@@ -182,10 +187,13 @@ impl STRkitBAMReader {
             }
         }
 
+        let n_segments = segments.len();
+        let segments_array = Array1::from_vec(segments);
+
         Ok((
-            segments.to_pyarray_bound(py),
-            segments.len(),
-            read_lengths.to_pyarray_bound(py),
+            PyArray::from_owned_object_array(py, segments_array),
+            n_segments,
+            read_lengths.to_pyarray(py),
             chimeric_read_status,
             left_most_coord,
             right_most_coord,
