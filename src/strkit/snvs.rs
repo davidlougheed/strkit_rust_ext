@@ -42,9 +42,9 @@ impl CandidateSNVs {
     fn get<'py>(&self, py: Python<'py>, pos: usize) -> Option<Bound<'py, PyDict>> {
         self.snvs.get(&pos).map(move |c| {
             [
-                ("id", c.id),
-                ("ref_base", c.ref_base.to_string()),
-                ("alts", c.alts),
+                ("id", c.id.to_object(py)),
+                ("ref_base", c.ref_base.to_object(py)),
+                ("alts", c.alts.to_object(py)),
             ].into_py_dict(py).unwrap()
         })
     }

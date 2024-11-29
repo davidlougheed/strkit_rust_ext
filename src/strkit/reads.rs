@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use numpy::ndarray::Array1;
 use numpy::{PyArray, PyArray1, ToPyArray};
 use pyo3::exceptions::PyValueError;
-use pyo3::{intern, IntoPyObjectExt};
+use pyo3::intern;
 use pyo3::prelude::*;
 use rust_htslib::bam::ext::BamRecordExtensions;
 use rust_htslib::bam::{IndexedReader, Read};
