@@ -400,8 +400,9 @@ dependencies = [
 
 [[package]]
 name = "hts-sys"
-version = "2.1.4"
-source = "git+https://github.com/davidlougheed/hts-sys.git?branch=chore/update-libdeflate#fe017a2fd9252f8f7a458d61630317515148ac08"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e38d7f1c121cd22aa214cb4dadd4277dc5447391eac518b899b29ba6356fbbb2"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -1126,8 +1127,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "rust-htslib"
-version = "0.48.0"
-source = "git+https://github.com/davidlougheed/rust-htslib.git?branch=test/libdeflate-1-21#1a20caeb18c243b1ecdab95dde828cca94b4dc37"
+version = "0.49.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "115ae57b89deb942275566eca8c31da053d8df0d8bda12e50c4c4aa994877068"
 dependencies = [
  "bio-types",
  "byteorder",
@@ -1271,7 +1273,7 @@ dependencies = [
 
 [[package]]
 name = "strkit_rust_ext"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "bio",
  "bytecount",
