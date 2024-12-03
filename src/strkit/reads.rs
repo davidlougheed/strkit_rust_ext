@@ -1,7 +1,8 @@
 use std::cmp;
 use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
 use numpy::ndarray::Array1;
-use numpy::{PyArray1, ToPyArray};
+use numpy::{PyArray, PyArray1, ToPyArray};
 use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
@@ -52,20 +53,25 @@ fn _extract_i64_tag_value(a: Result<Aux<'_>, RustHTSlibError>) -> Option<i64> {
 #[pymethods]
 impl STRkitAlignedSegment {
     #[getter]
+    fn query_sequence_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u8>>> {
+        Ok(PyArray1::from_array(py, &Array1::from_iter(self.query_sequence.clone().as_bytes().into_iter().map(|&x| x))))
+    }
+
+    #[getter]
     fn query_qualities<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u8>>> {
-        Ok(PyArray1::from_array_bound(py, &self._query_qualities))
+        Ok(PyArray1::from_array(py, &self._query_qualities))
     }
 
     #[getter]
     fn raw_cigar<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u32>>> {
-        Ok(PyArray1::from_array_bound(py, &self._raw_cigar))
+        Ok(PyArray1::from_array(py, &self._raw_cigar))
     }
 }
 
 
 #[pyclass]
 pub struct STRkitBAMReader {
-    reader: IndexedReader,
+    reader: Mutex<IndexedReader>,
 }
 
 #[pymethods]
@@ -76,7 +82,7 @@ impl STRkitBAMReader {
 
         if let Ok(mut reader) = r {
             reader.set_reference(ref_path).unwrap();
-            Ok(STRkitBAMReader { reader })
+            Ok(STRkitBAMReader { reader: Mutex::new(reader) })
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load BAM from path: {}", path)))
         }
@@ -84,7 +90,8 @@ impl STRkitBAMReader {
 
     #[getter]
     fn references(&self) -> Vec<String> {
-        let names = self.reader.header().target_names();
+        let reader = self.reader.lock().unwrap();
+        let names = reader.header().target_names();
         names.into_iter().map(|n| String::from_utf8_lossy(n).to_string()).collect()
     }
 
@@ -98,19 +105,21 @@ impl STRkitBAMReader {
         logger: Bound<PyAny>,
         locus_log_str: &str,
     ) -> PyResult<(Bound<'py, PyArray1<PyObject>>, usize, Bound<'py, PyArray1<usize>>, HashMap<String, u8>, i64, i64)> {
-        self.reader.fetch((contig, left_coord, right_coord)).unwrap();
+        let mut reader = self.reader.lock().unwrap();
+
+        reader.fetch((contig, left_coord, right_coord)).unwrap();
 
         let mut left_most_coord = 999999999999i64;
         let mut right_most_coord = 0i64;
 
-        let mut segments: Vec<PyObject> = Vec::new();
+        let mut segments: Vec<Py<STRkitAlignedSegment>> = Vec::new();
         let mut read_lengths: Vec<usize> = Vec::new();
         let mut chimeric_read_status: HashMap<String, u8> = HashMap::new();
         let mut seen_reads: HashSet<String> = HashSet::new();
 
         let mut record = Record::new();
 
-        while let Some(r) = self.reader.read(&mut record) {
+        while let Some(r) = reader.read(&mut record) {
             match r {
                 Ok(_) => {
                     let name = String::from_utf8_lossy(record.qname()).to_string();
@@ -168,7 +177,7 @@ impl STRkitBAMReader {
                     let nc = aligned_segment.name.clone();
                     seen_reads.insert(nc);
 
-                    segments.push(Py::new(py, aligned_segment)?.into_py(py));
+                    segments.push(Py::new(py, aligned_segment)?);
                     read_lengths.push(length);
 
                     left_most_coord = cmp::min(left_most_coord, start);
@@ -182,10 +191,13 @@ impl STRkitBAMReader {
             }
         }
 
+        let n_segments = segments.len();
+        let segments_array = Array1::from_vec(segments);
+
         Ok((
-            segments.to_pyarray_bound(py),
-            segments.len(),
-            read_lengths.to_pyarray_bound(py),
+            PyArray::from_owned_object_array(py, segments_array),
+            n_segments,
+            read_lengths.to_pyarray(py),
             chimeric_read_status,
             left_most_coord,
             right_most_coord,

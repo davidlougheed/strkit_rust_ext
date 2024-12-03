@@ -57,5 +57,5 @@ pub fn get_aligned_pair_matches<'py>(
 ) -> (Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>) {
     let (qi_vec, di_vec) = get_aligned_pair_matches_rs(cigar, query_start, ref_start);
 
-    (qi_vec.to_pyarray_bound(py), di_vec.to_pyarray_bound(py))
+    (qi_vec.to_pyarray(py), di_vec.to_pyarray(py))
 }

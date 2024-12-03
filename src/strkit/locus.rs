@@ -143,7 +143,7 @@ pub fn get_pairs_and_tr_read_coords<'py>(
         (None, left_flank_start, left_flank_end, right_flank_start, right_flank_end)
     } else {
         (
-            Some((q_coords.to_pyarray_bound(py), r_coords.to_pyarray_bound(py))),
+            Some((q_coords.to_pyarray(py), r_coords.to_pyarray(py))),
             left_flank_start,
             left_flank_end,
             right_flank_start,
