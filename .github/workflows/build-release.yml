@@ -23,7 +23,7 @@ jobs:
         run: |
           python -m venv env
           source env/bin/activate
-          python -m pip install 'maturin>=1.7.3,<1.8' pytest numpy
+          python -m pip install 'maturin>=1.7.8,<1.8' pytest numpy
           python -m maturin develop
           pytest
           cargo test
@@ -33,7 +33,7 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        target: [x86_64, aarch64, armv7]  # x86, aarch64, armv7 disabled for now
+        target: [x86_64, aarch64, armv7]  # x86 disabled for now
     steps:
       - uses: actions/checkout@v4
       - name: Build wheels
