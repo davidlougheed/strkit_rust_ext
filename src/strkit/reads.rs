@@ -72,17 +72,37 @@ impl STRkitAlignedSegment {
 #[pyclass]
 pub struct STRkitBAMReader {
     reader: Mutex<IndexedReader>,
+    max_reads: usize,
+    skip_supp: bool,
+    skip_sec: bool,
+    logger: Py<PyAny>,
 }
 
 #[pymethods]
 impl STRkitBAMReader {
     #[new]
-    fn py_new(path: &str, ref_path: &str) -> PyResult<Self> {
+    fn py_new<'py>(
+        py: Python<'py>,
+        path: &str,
+        ref_path: &str,
+        max_reads: usize,
+        skip_supp: bool,
+        skip_sec: bool,
+        logger: Bound<PyAny>,
+    ) -> PyResult<Self> {
         let r = IndexedReader::from_path(path);
 
         if let Ok(mut reader) = r {
             reader.set_reference(ref_path).unwrap();
-            Ok(STRkitBAMReader { reader: Mutex::new(reader) })
+            Ok(
+                STRkitBAMReader {
+                    reader: Mutex::new(reader),
+                    max_reads,
+                    skip_supp,
+                    skip_sec,
+                    logger: logger.unbind().clone_ref(py),
+                }
+            )
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load BAM from path: {}", path)))
         }
@@ -101,8 +121,6 @@ impl STRkitBAMReader {
         contig: &str,
         left_coord: i64,
         right_coord: i64,
-        max_reads: usize,
-        logger: Bound<PyAny>,
         locus_log_str: &str,
     ) -> PyResult<(Bound<'py, PyArray1<PyObject>>, usize, Bound<'py, PyArray1<usize>>, HashMap<String, u8>, i64, i64)> {
         let mut reader = self.reader.lock().unwrap();
@@ -132,16 +150,27 @@ impl STRkitBAMReader {
                     let crs = chimeric_read_status.entry(name.clone()).or_insert(0u8);
                     *crs |= if supp {2u8} else {1u8};
 
-                    if supp {  // Skip supplemental alignments
-                        logger.call_method1(
+                    if self.skip_supp && supp {  // If configured, skip supplementary alignments
+                        self.logger.call_method1(
+                            py,
                             intern!(py, "debug"),
-                            (intern!(py, "%s - skipping entry for read %s (supplemental)"), locus_log_str, name),
+                            (intern!(py, "%s - skipping entry for read %s (supplementary)"), locus_log_str, name),
+                        )?;
+                        continue;
+                    }
+
+                    if self.skip_sec && record.is_secondary() {  // If configured, skip secondary alignments
+                        self.logger.call_method1(
+                            py,
+                            intern!(py, "debug"),
+                            (intern!(py, "%s - skipping entry for read %s (secondary)"), locus_log_str, name),
                         )?;
                         continue;
                     }
 
                     if seen_reads.contains(&name) {  // Skip already-seen reads
-                        logger.call_method1(
+                        self.logger.call_method1(
+                            py,
                             intern!(py, "debug"),
                             (intern!(py, "%s - skipping entry for read %s (already seen)"), locus_log_str, name),
                         )?;
@@ -183,7 +212,7 @@ impl STRkitBAMReader {
                     left_most_coord = cmp::min(left_most_coord, start);
                     right_most_coord = cmp::max(right_most_coord, end);
 
-                    if seen_reads.len() > max_reads {
+                    if seen_reads.len() > self.max_reads {
                         break;
                     }
                 }

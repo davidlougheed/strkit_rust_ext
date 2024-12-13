@@ -113,15 +113,13 @@ class STRkitAlignedSegment:
 class STRkitBAMReader:
     references: list[str]
 
-    def __init__(self, path: str, ref_path: str): ...
+    def __init__(self, path: str, ref_path: str, max_reads: int, skip_supp: bool, skip_sec: bool, logger: Logger): ...
 
     def get_overlapping_segments_and_related_data(
         self,
         contig: str,
         left_coord: int,
         right_coord: int,
-        max_reads: int,
-        logger: Logger,
         locus_log_str: str,
     ) -> tuple[NDArray, int, NDArray[numpy.ulonglong], dict[str, int], int, int]: ...
 
