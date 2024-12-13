@@ -77,6 +77,7 @@ pub struct STRkitBAMReader {
     skip_sec: bool,
     use_hp: bool,
     logger: Py<PyAny>,
+    debug_logs: bool,
 }
 
 #[pymethods]
@@ -91,6 +92,7 @@ impl STRkitBAMReader {
         skip_sec: bool,
         use_hp: bool,
         logger: Bound<PyAny>,
+        debug_logs: bool,
     ) -> PyResult<Self> {
         let r = IndexedReader::from_path(path);
 
@@ -104,6 +106,7 @@ impl STRkitBAMReader {
                     skip_sec,
                     use_hp,
                     logger: logger.unbind().clone_ref(py),
+                    debug_logs,
                 }
             )
         } else {
@@ -154,29 +157,35 @@ impl STRkitBAMReader {
                     *crs |= if supp {2u8} else {1u8};
 
                     if self.skip_supp && supp {  // If configured, skip supplementary alignments
-                        self.logger.call_method1(
-                            py,
-                            intern!(py, "debug"),
-                            (intern!(py, "%s - skipping entry for read %s (supplementary)"), locus_log_str, name),
-                        )?;
+                        if self.debug_logs {  // Keep debug log level check in Rust to avoid needless Python call
+                            self.logger.call_method1(
+                                py,
+                                intern!(py, "debug"),
+                                (intern!(py, "%s - skipping entry for read %s (supplementary)"), locus_log_str, name),
+                            )?;
+                        }
                         continue;
                     }
 
                     if self.skip_sec && record.is_secondary() {  // If configured, skip secondary alignments
-                        self.logger.call_method1(
-                            py,
-                            intern!(py, "debug"),
-                            (intern!(py, "%s - skipping entry for read %s (secondary)"), locus_log_str, name),
-                        )?;
+                        if self.debug_logs {  // Keep debug log level check in Rust to avoid needless Python call
+                            self.logger.call_method1(
+                                py,
+                                intern!(py, "debug"),
+                                (intern!(py, "%s - skipping entry for read %s (secondary)"), locus_log_str, name),
+                            )?;
+                        }
                         continue;
                     }
 
                     if seen_reads.contains(&name) {  // Skip already-seen reads
-                        self.logger.call_method1(
-                            py,
-                            intern!(py, "debug"),
-                            (intern!(py, "%s - skipping entry for read %s (already seen)"), locus_log_str, name),
-                        )?;
+                        if self.debug_logs {  // Keep debug log level check in Rust to avoid needless Python call
+                            self.logger.call_method1(
+                                py,
+                                intern!(py, "debug"),
+                                (intern!(py, "%s - skipping entry for read %s (already seen)"), locus_log_str, name),
+                            )?;
+                        }
                         continue;
                     }
 
