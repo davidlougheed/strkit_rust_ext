@@ -113,7 +113,16 @@ class STRkitAlignedSegment:
 class STRkitBAMReader:
     references: list[str]
 
-    def __init__(self, path: str, ref_path: str, max_reads: int, skip_supp: bool, skip_sec: bool, logger: Logger): ...
+    def __init__(
+        self,
+        path: str,
+        ref_path: str,
+        max_reads: int,
+        skip_supp: bool,
+        skip_sec: bool,
+        use_hp: bool,
+        logger: Logger,
+    ): ...
 
     def get_overlapping_segments_and_related_data(
         self,

@@ -75,6 +75,7 @@ pub struct STRkitBAMReader {
     max_reads: usize,
     skip_supp: bool,
     skip_sec: bool,
+    use_hp: bool,
     logger: Py<PyAny>,
 }
 
@@ -88,6 +89,7 @@ impl STRkitBAMReader {
         max_reads: usize,
         skip_supp: bool,
         skip_sec: bool,
+        use_hp: bool,
         logger: Bound<PyAny>,
     ) -> PyResult<Self> {
         let r = IndexedReader::from_path(path);
@@ -100,6 +102,7 @@ impl STRkitBAMReader {
                     max_reads,
                     skip_supp,
                     skip_sec,
+                    use_hp,
                     logger: logger.unbind().clone_ref(py),
                 }
             )
@@ -199,8 +202,8 @@ impl STRkitBAMReader {
                         query_sequence,
                         _query_qualities: Array1::from_vec(record.qual().to_vec()),
                         _raw_cigar: Array1::from_vec(record.raw_cigar().to_vec()),
-                        hp: _extract_i64_tag_value(record.aux(b"HP")),
-                        ps: _extract_i64_tag_value(record.aux(b"PS")),
+                        hp: if self.use_hp { _extract_i64_tag_value(record.aux(b"HP")) } else { None },
+                        ps: if self.use_hp { _extract_i64_tag_value(record.aux(b"PS")) } else { None },
                     };
 
                     let nc = aligned_segment.name.clone();
