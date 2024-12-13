@@ -54,7 +54,7 @@ fn _extract_i64_tag_value(a: Result<Aux<'_>, RustHTSlibError>) -> Option<i64> {
 impl STRkitAlignedSegment {
     #[getter]
     fn query_sequence_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u8>>> {
-        Ok(PyArray1::from_array(py, &Array1::from_iter(self.query_sequence.clone().as_bytes().into_iter().map(|&x| x))))
+        Ok(PyArray1::from_array(py, &Array1::from_iter(self.query_sequence.clone().as_bytes().iter().copied())))
     }
 
     #[getter]
@@ -83,8 +83,8 @@ pub struct STRkitBAMReader {
 #[pymethods]
 impl STRkitBAMReader {
     #[new]
-    fn py_new<'py>(
-        py: Python<'py>,
+    fn py_new(
+        py: Python<'_>,
         path: &str,
         ref_path: &str,
         max_reads: usize,

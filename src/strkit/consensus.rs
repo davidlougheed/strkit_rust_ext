@@ -163,7 +163,7 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound
         // instead.
         _ => {
             // sort the sequences by size so we can get the median size
-            seqs_no_blanks.sort_unstable_by(|a, b| a.len().cmp(&b.len()));
+            seqs_no_blanks.sort_unstable_by_key(|a| a.len());
 
             let sv: Vec<&str> = seqs_no_blanks.iter().map(|s| s.deref()).collect();
 
