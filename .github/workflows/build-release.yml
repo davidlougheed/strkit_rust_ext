@@ -41,6 +41,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          rust-toolchain: 1.76.0
           target: ${{ matrix.target }}
           args: --release --out dist -i python3.10 -i python3.11 -i python3.12
           sccache: 'true'
@@ -76,6 +77,8 @@ jobs:
               export AR="$TARGET_AR"
               export CXX="$TARGET_CXX"
               export BINDGEN_EXTRA_CLANG_ARGS="--sysroot $TARGET_SYSROOT"
+            else
+              export CFLAGS="-Wno-error"
             fi
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -119,6 +122,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          rust-toolchain: 1.76.0
           target: ${{ matrix.target }}
           args: --release --out dist -i python3.10 -i python3.11 -i python3.12
           # sccache: 'true'
@@ -136,6 +140,7 @@ jobs:
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
+          rust-toolchain: 1.76.0
           command: sdist
           args: --out dist
       - name: Upload sdist
@@ -162,3 +167,4 @@ jobs:
         with:
           command: upload
           args: --non-interactive --skip-existing wheels/*
+          rust-toolchain: 1.76.0
