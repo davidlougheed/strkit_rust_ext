@@ -71,7 +71,7 @@ jobs:
             # https://github.com/rust-lang/rust-bindgen/issues/1229
             # https://docs.rs/cc/latest/cc/#external-configuration-via-environment-variables
 
-            echo "arch details $TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT $CFLAGS $CXXFLAGS"
+            echo "arch details $TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT $CFLAGS $CXXFLAGS $RUSTFLAGS"
 
             if [[ ! -z "$TARGET_CC" ]]; then
               export CC="$TARGET_CC"
