@@ -81,6 +81,7 @@ jobs:
               export BINDGEN_EXTRA_CLANG_ARGS="--sysroot $TARGET_SYSROOT"
             else
               export CFLAGS="-Wno-error"
+              export CXXFLAGS="-Wno-error"
             fi
       - name: Upload wheels
         uses: actions/upload-artifact@v4
