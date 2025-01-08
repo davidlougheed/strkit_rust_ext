@@ -72,7 +72,9 @@ jobs:
             # https://github.com/rust-lang/rust-bindgen/issues/1229
             # https://docs.rs/cc/latest/cc/#external-configuration-via-environment-variables
 
-            echo "arch details $TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT $CFLAGS $CXXFLAGS $RUSTFLAGS"
+            echo "arch details $TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT $CFLAGS $CXXFLAGS $RUSTFLAGS $BINDGEN_EXTRA_CLANG_ARGS"
+
+            printenv
 
             if [[ ! -z "$TARGET_CC" ]]; then
               export CC="$TARGET_CC"
@@ -82,6 +84,7 @@ jobs:
             else
               export CFLAGS="-Wno-error"
               export CXXFLAGS="-Wno-error"
+              export BINDGEN_EXTRA_CLANG_ARGS="-Wno-error"
             fi
       - name: Upload wheels
         uses: actions/upload-artifact@v4
