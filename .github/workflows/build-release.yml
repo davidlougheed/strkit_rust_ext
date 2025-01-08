@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,6 +23,7 @@ jobs:
           toolchain: 1.76.0
       - name: Run tests
         run: |
+          export CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true
           python -m venv env
           source env/bin/activate
           python -m pip install 'maturin>=1.8.1,<1.9' pytest numpy
@@ -31,7 +32,7 @@ jobs:
           cargo test
 
   linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [test]
     strategy:
       matrix:
@@ -133,7 +134,7 @@ jobs:
           path: dist
 
   sdist:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [test]
     steps:
       - uses: actions/checkout@v4
@@ -151,7 +152,7 @@ jobs:
 
   release:
     name: Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
     needs: [linux, macos, sdist]  # windows,
     steps:
