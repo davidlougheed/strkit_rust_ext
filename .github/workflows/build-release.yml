@@ -78,6 +78,7 @@ jobs:
             # https://github.com/rust-lang/rust-bindgen/issues/1229
             # https://docs.rs/cc/latest/cc/#external-configuration-via-environment-variables
 
+            gcc --version
             echo "arch details $TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT $CFLAGS $CXXFLAGS $RUSTFLAGS $BINDGEN_EXTRA_CLANG_ARGS"
 
             printenv
