@@ -47,18 +47,12 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12
           # sccache: 'true'
-          manylinux: '2_17' # '2_28'
+          manylinux: '2_28'
           # https://github.com/sfackler/rust-openssl/issues/2036#issuecomment-1724324145
           before-script-linux: |
             # If we're running on rhel centos, install needed packages.
             if command -v yum &> /dev/null; then
-                yum update -y && \
-                  yum install \
-                    --setopt=skip_missing_names_on_install=True -y \
-                    gcc perl-core openssl openssl-devel pkgconfig libatomic llvm-toolset
-
-                # The yum install command (with llvm-toolset) is needed for manylinux_2_28, but llvm-toolset is not
-                # found with older manylinux (auto).
+                yum update -y && yum install -y gcc perl-core openssl openssl-devel pkgconfig libatomic llvm-toolset
 
                 # If we're running on i686 we need to symlink libatomic
                 # in order to build openssl with -latomic flag.
@@ -78,7 +72,6 @@ jobs:
             # https://github.com/rust-lang/rust-bindgen/issues/1229
             # https://docs.rs/cc/latest/cc/#external-configuration-via-environment-variables
 
-            gcc --version
             echo "arch details $TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT $CFLAGS $CXXFLAGS $RUSTFLAGS $BINDGEN_EXTRA_CLANG_ARGS"
 
             printenv
