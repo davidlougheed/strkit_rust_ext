@@ -76,6 +76,8 @@ jobs:
 
             printenv
 
+            export CMAKE_POLICY_VERSION_MINIMUM="3.5"
+
             if [[ ! -z "$TARGET_CC" ]]; then
               export CC="$TARGET_CC"
               export AR="$TARGET_AR"
