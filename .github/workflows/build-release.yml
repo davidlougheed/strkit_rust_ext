@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build wheels
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@v1.45.0
         with:
           rust-toolchain: 1.76.0
           target: ${{ matrix.target }}
