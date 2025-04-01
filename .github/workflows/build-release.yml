@@ -76,6 +76,7 @@ jobs:
 
             printenv
 
+            # Required to make Parasail build
             export CMAKE_POLICY_VERSION_MINIMUM="3.5"
 
             if [[ ! -z "$TARGET_CC" ]]; then
