@@ -1,8 +1,8 @@
 [package]
 name = "strkit_rust_ext"
-version = "0.20.2"
+version = "0.21.0"
 edition = "2021"
-rust-version = "1.76.0"
+rust-version = "1.81.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -10,14 +10,12 @@ name = "strkit_rust_ext"
 crate-type = ["cdylib"]
 
 [dependencies]
-bio = "2.0.3"
-numpy = "0.24"
-pyo3 = { version = "0.24.1" }
+bio = "2.3.0"
+numpy = "0.25"
+pyo3 = { version = "0.25.0" }
 bytecount = { version = "0.6.8", features = ["runtime-dispatch-simd"] }
 # exclude curl from rust-htslib by turning off default features and putting back bzip2 + lzma for CRAMs
 rust-htslib = { version = "0.49", default-features = false, features = ["bzip2", "lzma", "libdeflate"] }
 strsim = "0.11"
-parasail-rs = "0.7.7"
+parasail-rs = "0.7.8"
 once_cell = "1.20"
-# newer patch versions break backwards compatibility with rust < 1.81
-home = "=0.5.9"
