@@ -95,30 +95,30 @@ jobs:
           name: wheels-linux-${{ matrix.target }}
           path: dist
 
-  # windows:
-  #   runs-on: windows-latest
-  #   needs: [test]
-  #   strategy:
-  #     matrix:
-  #       target: [x64, x86]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install OpenSSL (Windows)
-  #       shell: powershell
-  #       run: |
-  #         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-  #         vcpkg install openssl:${{ matrix.target }}-windows-static-md
-  #     - name: Build wheels
-  #       uses: PyO3/maturin-action@v1
-  #       with:
-  #         target: ${{ matrix.target }}
-  #         args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12
-  #         # sccache: 'true'
-  #     - name: Upload wheels
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: wheels-windows-${{ matrix.target }}
-  #         path: dist
+  windows:
+    runs-on: windows-latest
+    needs: [test]
+    strategy:
+      matrix:
+        target: [x64, x86]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OpenSSL (Windows)
+        shell: powershell
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:${{ matrix.target }}-windows-static-md
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist -i python3.10 -i python3.11 -i python3.12
+          # sccache: 'true'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.target }}
+          path: dist
 
   macos:
     runs-on: macos-latest
@@ -162,7 +162,7 @@ jobs:
     name: Release
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
-    needs: [linux, macos, sdist]  # windows,
+    needs: [linux, macos, windows, sdist]
     steps:
       - uses: actions/download-artifact@v4
         with:
