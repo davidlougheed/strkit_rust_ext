@@ -149,13 +149,14 @@ jobs:
           export PATH="/mingw64/bin:$PATH:/c/Program Files/Git/bin"
           export MSYSTEM=MINGW64
 
-          git clone https://github.com/nsbuitrago/parasail
+          git clone --recurse-submodules https://github.com/nsbuitrago/parasail
           cd parasail
           mkdir build
           cd build
           cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
           ls -lh
           cmake --build . --target parasail
+          ls -lh
 
           maturin build --release --verbose --jobs 2 --out dist
       - name: Upload wheels
