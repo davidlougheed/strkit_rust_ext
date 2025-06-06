@@ -95,10 +95,10 @@ jobs:
           path: dist
 
   windows:
-    runs-on: windows-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        target: [x64]
+        target: [x86_64-pc-windows-msvc]
     steps:
       - uses: actions/checkout@v4
       # - name: Install OpenSSL (Windows)
