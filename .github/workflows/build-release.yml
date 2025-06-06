@@ -160,7 +160,7 @@ jobs:
           cd parasail
           mkdir build
           cd build
-          cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
+          cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DINT64_LITERAL_SUFFIX_I64 -DINT64_LITERAL_SUFFIX_LL ..
           cmake --build . --target parasail
           cd ../..
 
