@@ -94,31 +94,64 @@ jobs:
           name: wheels-linux-${{ matrix.target }}
           path: dist
 
+  # windows:
+  #   runs-on: ubuntu-24.04
+  #   strategy:
+  #     matrix:
+  #       target: [x86_64-pc-windows-gnu]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     # - name: Install OpenSSL (Windows)
+  #     #   shell: powershell
+  #     #   run: |
+  #     #     echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+  #     #     vcpkg install openssl:${{ matrix.target }}-windows-static-md
+  #     - name: Build wheels
+  #       uses: PyO3/maturin-action@v1
+  #       with:
+  #         rust-toolchain: 1.82.0
+  #         target: ${{ matrix.target }}
+  #         args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13
+  #         # sccache: 'true'
+  #         before-script-linux: |
+  #           sudo apt-get update -y && sudo apt-get install -y g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64
+  #     - name: Upload wheels
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wheels-windows-${{ matrix.target }}
+  #         path: dist
+
   windows:
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        target: [x86_64-pc-windows-gnu]
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      # - name: Install OpenSSL (Windows)
-      #   shell: powershell
-      #   run: |
-      #     echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-      #     vcpkg install openssl:${{ matrix.target }}-windows-static-md
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
+      - name: Set up MSYS2 MinGW-W64
+        uses: msys2/setup-msys2@v2
         with:
-          rust-toolchain: 1.82.0
-          target: ${{ matrix.target }}
-          args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13
-          # sccache: 'true'
-          before-script-linux: |
-            sudo apt-get update -y && sudo apt-get install -y gcc-mingw-w64
+          msystem: mingw64
+          update: false
+          install: >-
+            mingw-w64-x86_64-autotools
+            mingw-w64-x86_64-bzip2
+            mingw-w64-x86_64-curl
+            mingw-w64-x86_64-libdeflate
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-tools-git
+            mingw-w64-x86_64-xz
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-rust
+            mingw-w64-python
+            mingw-w64-python-maturin
+      - name: Compile htslib
+        shell: msys2 {0}
+        run: |
+          export PATH="/mingw64/bin:$PATH:/c/Program Files/Git/bin"
+          export MSYSTEM=MINGW64
+          maturin build --release --verbose --jobs 2 --out dist
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-windows-${{ matrix.target }}
+          name: wheels-windows-w64
           path: dist
 
   macos:
