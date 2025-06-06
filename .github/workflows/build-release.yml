@@ -140,6 +140,7 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-zlib
             mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
             mingw-w64-x86_64-rust
             mingw-w64-x86_64-python
             mingw-w64-x86_64-python-maturin
