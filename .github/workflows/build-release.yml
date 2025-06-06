@@ -163,10 +163,11 @@ jobs:
           cd parasail
           mkdir build
           cd build
-          cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DINT64_LITERAL_SUFFIX_I64=0 -DINT64_LITERAL_SUFFIX_LL=1 ..
+          cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
           cmake --build . --target parasail
           export LD_LIBRARY_PATH="$(pwd):${LD_LIBRARY_PATH}"
           ls -lh
+          cat config.h
           cd ../..
 
           maturin build --release --verbose --jobs 2 --out dist
