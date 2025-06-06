@@ -153,6 +153,7 @@ jobs:
       - name: Build
         shell: msys2 {0}
         run: |
+          export PATH="/mingw64/bin:$PATH:/c/Program Files/Git/bin"
           export RUST_BACKTRACE=1
 
           git clone https://github.com/davidlougheed/parasail
