@@ -27,14 +27,13 @@ jobs:
           export CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true
           python -m venv env
           source env/bin/activate
-          python -m pip install 'maturin>=1.8.1,<1.9' pytest numpy
+          python -m pip install 'maturin>=1.8.6,<1.9' pytest numpy
           python -m maturin develop --jobs 2
           pytest
           cargo test
 
   linux:
     runs-on: ubuntu-24.04
-    needs: [test]
     strategy:
       matrix:
         target: [x86_64, aarch64, armv7]  # x86 disabled for now
@@ -97,7 +96,6 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    needs: [test]
     strategy:
       matrix:
         target: [x64]
@@ -123,7 +121,6 @@ jobs:
 
   macos:
     runs-on: macos-latest
-    needs: [test]
     strategy:
       matrix:
         target: [x86_64, aarch64]
@@ -144,7 +141,6 @@ jobs:
 
   sdist:
     runs-on: ubuntu-24.04
-    needs: [test]
     steps:
       - uses: actions/checkout@v4
       - name: Build sdist
@@ -163,7 +159,7 @@ jobs:
     name: Release
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
-    needs: [linux, macos, windows, sdist]
+    needs: [test, linux, macos, windows, sdist]
     steps:
       - uses: actions/download-artifact@v4
         with:
