@@ -153,10 +153,9 @@ jobs:
           cd parasail
           mkdir build
           cd build
-          cmake -DBUILD_SHARED_LIBS=OFF ..
+          cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
           ls -lh
-          make
-          sudo make install
+          cmake --build . --target parasail
 
           maturin build --release --verbose --jobs 2 --out dist
       - name: Upload wheels
