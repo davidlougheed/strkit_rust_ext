@@ -94,29 +94,89 @@ jobs:
           name: wheels-linux-${{ matrix.target }}
           path: dist
 
+  # windows:
+  #   runs-on: ubuntu-24.04
+  #   strategy:
+  #     matrix:
+  #       target: [x86_64-pc-windows-gnu]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     # - name: Install OpenSSL (Windows)
+  #     #   shell: powershell
+  #     #   run: |
+  #     #     echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+  #     #     vcpkg install openssl:${{ matrix.target }}-windows-static-md
+  #     - name: Build wheels
+  #       uses: PyO3/maturin-action@v1
+  #       with:
+  #         rust-toolchain: 1.82.0
+  #         target: ${{ matrix.target }}
+  #         args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13
+  #         # sccache: 'true'
+  #         before-script-linux: |
+  #           sudo apt-get update -y && sudo apt-get install -y g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64
+  #     - name: Upload wheels
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wheels-windows-${{ matrix.target }}
+  #         path: dist
+
   windows:
     runs-on: windows-latest
     strategy:
       matrix:
-        target: [x64]
+        include:
+          # - { sys: mingw64, env: x86_64 }
+          - { sys: ucrt64,  env: ucrt-x86_64 }
+
     steps:
       - uses: actions/checkout@v4
-      # - name: Install OpenSSL (Windows)
-      #   shell: powershell
-      #   run: |
-      #     echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-      #     vcpkg install openssl:${{ matrix.target }}-windows-static-md
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
+      - name: Set up MSYS2 MinGW-W64
+        uses: msys2/setup-msys2@v2
         with:
-          rust-toolchain: 1.82.0
-          target: ${{ matrix.target }}
-          args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13
-          # sccache: 'true'
+          msystem: ${{matrix.sys}}
+          update: false
+          install: >-
+            mingw-w64-${{matrix.env}}-autotools
+            mingw-w64-${{matrix.env}}-bzip2
+            mingw-w64-${{matrix.env}}-curl
+            mingw-w64-${{matrix.env}}-libdeflate
+            mingw-w64-${{matrix.env}}-toolchain
+            mingw-w64-${{matrix.env}}-tools-git
+            mingw-w64-${{matrix.env}}-xz
+            mingw-w64-${{matrix.env}}-zlib
+            mingw-w64-${{matrix.env}}-cmake
+            mingw-w64-${{matrix.env}}-ninja
+            mingw-w64-${{matrix.env}}-rust
+            mingw-w64-${{matrix.env}}-python
+            mingw-w64-${{matrix.env}}-python-maturin
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          export PATH="/mingw64/bin:$PATH:/c/Program Files/Git/bin"
+          export RUST_BACKTRACE=1
+          export PARASAIL_NO_VENDOR=1
+
+          echo "${LD_LIBRARY_PATH}"
+
+          git clone https://github.com/davidlougheed/parasail
+          cd parasail
+          mkdir build
+          cd build
+          cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
+          # -DINT64_LITERAL_SUFFIX_I64=0 -DINT64_LITERAL_SUFFIX_LL=1
+          cat config.h
+          echo "----------------"
+          cmake --build . --target parasail
+          export LD_LIBRARY_PATH="$(pwd):${LD_LIBRARY_PATH}"
+          ls -lh
+          cd ../..
+
+          maturin build --release --verbose --jobs 2 --out dist
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-windows-${{ matrix.target }}
+          name: wheels-windows-w64
           path: dist
 
   macos:
