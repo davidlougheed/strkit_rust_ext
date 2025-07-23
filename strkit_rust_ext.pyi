@@ -122,7 +122,7 @@ class STRkitBAMReader:
         skip_sec: bool,
         use_hp: bool,
         logger: Logger,
-        log_level: str,
+        debug_logs: bool,
     ): ...
 
     def get_overlapping_segments_and_related_data(
