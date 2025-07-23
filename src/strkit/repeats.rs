@@ -66,6 +66,14 @@ pub fn get_repeat_count(
     local_search_range: i32,
     step_size: i32,
 ) -> ((i32, i32), usize, i32) {
+    /* Returns:
+     *  - tuple of (best repeat size, best score)
+     *  - # possibilities explored
+     *  - difference between best repeat size and starting repeat size
+     */
+
+    // TODO: use traceback / number of indels to guide initial step size
+
     let mut db_seq = flank_left_seq.to_owned();
     db_seq.push_str(tr_seq);
     db_seq.push_str(flank_right_seq);
@@ -85,7 +93,14 @@ pub fn get_repeat_count(
         .build();
 
     let max_init_score = (motif.len() as i32 * start_count + flank_left_seq.len() as i32 + flank_right_seq.len() as i32) * MATCH_SCORE;
+    let max_score = (tr_seq.len() + flank_left_seq.len() + flank_right_seq.len()) * (MATCH_SCORE as usize);
     let start_score = score_candidate(&aligner, motif, start_count as usize, flank_left_seq, flank_right_seq);
+    let early_return_threshold = if motif.len() == 1 {
+        max_score - (INDEL_PENALTY as usize)
+    } else {
+        // This means one character away (indel or match), not one motif away:
+        max_score - (cmp::max(MISMATCH_SCORE.abs(), INDEL_PENALTY) as usize)
+    };
 
     let score_diff: f64 = (start_score - max_init_score).abs() as f64 / max_init_score as f64;
 
@@ -147,6 +162,11 @@ pub fn get_repeat_count(
             if best_score_this_round > best_score {
                 best_size = bstr;
                 best_score = best_score_this_round;
+
+                // If we're close to perfect (less than one substitution/indel away), early-escape:
+                if best_score as usize >= early_return_threshold {
+                    return ((best_size, best_score), n_explored, best_size - start_count);
+                }
 
                 if lsr > 1 && ((best_score - max_init_score).abs() as f64 / max_init_score as f64) < 0.05 {
                     // reduce search range as we approach an optimum
