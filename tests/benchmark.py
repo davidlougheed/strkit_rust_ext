@@ -1,10 +1,13 @@
+import logging
 from datetime import datetime
 from strkit_rust_ext import (
-    shannon_entropy, get_read_snvs, get_aligned_pair_matches, consensus_seq, 
+    shannon_entropy, get_read_snvs, get_aligned_pair_matches, consensus_seq,
     process_read_snvs_for_locus_and_calculate_useful_snvs
 )
-from .common import REF_SEQ, Q_SEQ, PAIRS, ALIGN_COORDS_Q, ALIGN_COORDS_R, CIGAR_OPS
+from .common import REF_SEQ, Q_QUALS, Q_SEQ, PAIRS, ALIGN_COORDS_Q, ALIGN_COORDS_R, CIGAR_OPS
 from .cigar import get_aligned_pairs_from_cigar
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -16,6 +19,48 @@ strs = [
 ]
 strs_st = tuple(map(lambda s: s.decode("ascii"), strs))
 
+short_repeats = [
+    "GTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTTGTTTGTTTGTTTGTTTGTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTTT",
+    "GTTTTTTGTTTGTTTGTTTGTTTGTTTTTTT",
+    "GTTTTTTGTTTTGTTTGTTTGTTTGTTTTTTT",
+]
+
 def main():
     dt = datetime.now()
     for _ in range(500000):
@@ -25,7 +70,20 @@ def main():
 
     dt = datetime.now()
     for _ in range(2000000):
-        get_read_snvs(Q_SEQ, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 0, 5, 20, 10, 0.0)
+        # query_sequence: str,
+        # query_quals: list[int],
+        # ref_seq: str,
+        # query_coords: list[int],
+        # ref_coords: list[int],
+        # ref_coord_start: int,
+        # tr_start_pos: int,
+        # tr_end_pos: int,
+        # contiguous_threshold: int,
+        # max_snv_group_size: int,
+        # too_many_snvs_threshold: int,
+        # entropy_flank_size: int,
+        # entropy_threshold: float,
+        get_read_snvs(Q_SEQ, Q_QUALS, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 0, 5, 20, 10, 0.0)
     print(f"get_read_snvs took {datetime.now() - dt}")
 
     dt = datetime.now()
@@ -39,10 +97,27 @@ def main():
     print(f"get_aligned_pair_matches (rs) took {datetime.now() - dt}")
 
     dt = datetime.now()
-    print(consensus_seq(strs_st))
+    print(consensus_seq(strs_st, logger, 100))
     for _ in range(10000):
-        consensus_seq(strs_st)
-    print(f"consensus_seq took {datetime.now() - dt}")
+        consensus_seq(strs_st, logger, 100)
+    print(f"10000 iters of consensus_seq with short non-repeat sequences took {datetime.now() - dt}")
+
+    dt = datetime.now()
+    print(consensus_seq(short_repeats, logger, 100))
+    for _ in range(10000):
+        consensus_seq(short_repeats, logger, 100)
+    print(f"10000 iters of consensus_seq with short repeats took {datetime.now() - dt}")
+
+    n_iters = 100
+    dt = datetime.now()
+    for _ in range(n_iters):
+        consensus_seq(
+            (("AAC" * 200, "AAC" * 220, "AAC" * 320, "AAC" * 335)),
+            logger,
+            100000,
+        )
+    print(f"{n_iters} iters of consensus_seq with long repeats took {datetime.now() - dt}")
+
 
     # dt = datetime.now()
     # for _ in range(1000):
