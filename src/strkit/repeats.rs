@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use parasail_rs::{Aligner, Matrix, Profile};
 use pyo3::pyfunction;
+use strsim::levenshtein;
 use std::{borrow::Borrow, cmp, collections::{HashMap, HashSet}};
 
 const MATCH_SCORE: i32 = 2;
@@ -74,12 +75,40 @@ pub fn get_repeat_count(
 
     // TODO: use traceback / number of indels to guide initial step size
 
-    let mut db_seq = flank_left_seq.to_owned();
-    db_seq.push_str(tr_seq);
-    db_seq.push_str(flank_right_seq);
+    let total_len = flank_left_seq.len() + tr_seq.len() + flank_right_seq.len();
+    let max_score = total_len * (MATCH_SCORE as usize);
+
+    // ----------------------------------------------------------------------------------------------------------------
+
+    let start_length = (start_count) * (motif.len() as i32);
+    let start_perfect_diff_from_tr_len = (start_length - (tr_seq.len() as i32)).abs();
+
+    if start_perfect_diff_from_tr_len <= { if motif.len() > 2 { 1 } else { 0 } } {
+        let rep = motif.repeat(start_count as usize);
+        if tr_seq.contains(&rep) {
+            return (
+                (start_count, (max_score as i32) - (INDEL_PENALTY * start_perfect_diff_from_tr_len)),
+                1,
+                0,
+            );
+        } else {
+            let ld = levenshtein(tr_seq, &rep);
+            if ld < motif.len() / 2 {
+                // Shortcut: if we're less than a half-motif's worth of substitutions+indels, skip the whole mess
+                // below.
+                let score =
+                    (max_score as i32)
+                    + (MISMATCH_SCORE * (ld as i32 - start_perfect_diff_from_tr_len))
+                    - (INDEL_PENALTY * start_perfect_diff_from_tr_len);
+                return ((start_count, score), 1, 0);
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------------------------------------------------------
 
     let db_seq_profile = Profile::new(
-        db_seq.as_bytes(),
+        [flank_left_seq, tr_seq, flank_right_seq].concat().as_bytes(),
         false,
         DNA_MATRIX.borrow()
     ).unwrap();
@@ -93,7 +122,6 @@ pub fn get_repeat_count(
         .build();
 
     let max_init_score = (motif.len() as i32 * start_count + flank_left_seq.len() as i32 + flank_right_seq.len() as i32) * MATCH_SCORE;
-    let max_score = (tr_seq.len() + flank_left_seq.len() + flank_right_seq.len()) * (MATCH_SCORE as usize);
     let start_score = score_candidate(&aligner, motif, start_count as usize, flank_left_seq, flank_right_seq);
     let early_return_threshold = if motif.len() == 1 {
         max_score - (INDEL_PENALTY as usize)
