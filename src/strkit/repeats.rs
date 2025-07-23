@@ -9,6 +9,8 @@ const INDEL_PENALTY: i32 = 5;
 
 const DNA_BASES: &[u8; 16] = b"ACGTRYSWKMBDHVNX";
 
+const MIN_REPEAT_SIZE: i32 = 0;
+
 static DNA_MATRIX: Lazy<Matrix> = Lazy::new(|| {
     let mut matrix = Matrix::create(DNA_BASES, MATCH_SCORE, MISMATCH_SCORE).unwrap();
 
@@ -110,7 +112,7 @@ pub fn get_repeat_count(
     while !to_explore.is_empty() && n_explored < max_iters {
         let (size_to_explore, going_right) = to_explore.pop().unwrap();
 
-        if size_to_explore < 0 {
+        if size_to_explore < MIN_REPEAT_SIZE {
             continue;
         }
 
@@ -156,10 +158,10 @@ pub fn get_repeat_count(
             let ml = bstr - step;
 
             if bstr > size_to_explore && !explored_sizes.contains(&mr) {
-                if mr >= 0 {
+                if mr >= MIN_REPEAT_SIZE {
                     to_explore.push((mr, true));
                 }
-            } else if bstr < size_to_explore && !explored_sizes.contains(&ml) && ml >= 0 {
+            } else if bstr < size_to_explore && !explored_sizes.contains(&ml) && ml >= MIN_REPEAT_SIZE {
                 to_explore.push((ml, false));
             }
         }
