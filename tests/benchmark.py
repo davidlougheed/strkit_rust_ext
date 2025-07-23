@@ -1,8 +1,7 @@
 import logging
 from datetime import datetime
 from strkit_rust_ext import (
-    shannon_entropy, get_read_snvs, get_aligned_pair_matches, consensus_seq,
-    process_read_snvs_for_locus_and_calculate_useful_snvs
+    shannon_entropy, get_read_snvs, get_aligned_pair_matches, consensus_seq, get_repeat_count
 )
 from .common import REF_SEQ, Q_QUALS, Q_SEQ, PAIRS, ALIGN_COORDS_Q, ALIGN_COORDS_R, CIGAR_OPS
 from .cigar import get_aligned_pairs_from_cigar
@@ -118,6 +117,12 @@ def main():
         )
     print(f"{n_iters} iters of consensus_seq with long repeats took {datetime.now() - dt}")
 
+    dt = datetime.now()
+    for _ in range(10000):
+        rep = "AAC" * 56
+        get_repeat_count(56, rep + "A", "GGC", "CGG", "AAC", 100, 3, 1)
+        get_repeat_count(57, "AGC" + rep, "GGC", "CGG", "AAC", 100, 3, 1)
+    print(f"10000 iters of get_repeat_count with slight imperfections took {datetime.now() - dt}")
 
     # dt = datetime.now()
     # for _ in range(1000):
