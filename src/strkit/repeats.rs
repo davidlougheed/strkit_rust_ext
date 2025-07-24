@@ -35,8 +35,8 @@ static DNA_MATRIX: Lazy<Matrix> = Lazy::new(|| {
     dna_codes.insert(b'X', vec![b'A', b'C', b'G', b'T']);
 
     dna_codes.iter().for_each(|(&code, code_matches)| {
+        let value = if code != b'X' { MATCH_SCORE } else { 0 };
         code_matches.iter().for_each(|cm| {
-            let value = if code != b'X' { 2 } else { 0 };
             matrix.set_value(dna_bases_map[&code], dna_bases_map[cm], value).unwrap();
             matrix.set_value(dna_bases_map[cm], dna_bases_map[&code], value).unwrap();
         });
