@@ -130,16 +130,23 @@ pub fn get_repeat_count(
         max_score - (cmp::max(MISMATCH_SCORE.abs(), INDEL_PENALTY) as usize)
     };
 
-    let score_diff: f64 = (start_score - max_init_score).abs() as f64 / max_init_score as f64;
+    if start_score as usize >= early_return_threshold {
+        return ((start_count, start_score), 1, 0);
+    }
+
+    // ----------------------------------------------------------------------------------------------------------------
+
+    let mut score_diff = (start_score - max_init_score).abs();
+    let mut rel_score_diff: f64 = score_diff as f64 / max_init_score as f64;
 
     let mut lsr = local_search_range;
     let mut step = step_size;
 
-    if score_diff < 0.05 {  // TODO: parametrize
+    if rel_score_diff < 0.05 || score_diff <= 10 || tr_seq.len() <= motif.len() * 10 {  // TODO: parametrize
         // If we're very close to the maximum, explore less.
         lsr = 1;
         step = 1;
-    } else if score_diff < 0.1 && lsr > 2 {
+    } else if (rel_score_diff < 0.1 || score_diff <= 15 || tr_seq.len() <= motif.len() * 20) && lsr > 2 {
         lsr = 2;
         step = 1;
     }
@@ -167,22 +174,24 @@ pub fn get_repeat_count(
         let start_size = cmp::max(size_to_explore - (if !going_right || skip_search {lsr} else {0}), 0);
         let end_size = size_to_explore + (if going_right || skip_search {lsr} else {0});
 
-        (start_size..end_size+1).for_each(|i| {
-            if !explored_sizes.contains(&i) {
-                // Generate a candidate TR tract by copying the provided motif 'i' times & score it
-                // Separate this from the .get() to postpone computation to until we need it
-
-                explored_sizes.insert(i);
-                let i_score = score_candidate(&aligner, motif, i as usize, flank_left_seq, flank_right_seq);
-
-                if best_size_this_round.is_none() || i_score > best_score_this_round {
-                    best_size_this_round = Some(i);
-                    best_score_this_round = i_score;
-                }
-
-                n_explored += 1;
+        for i in start_size..end_size+1 {
+            if explored_sizes.contains(&i) {
+                continue;
             }
-        });
+
+            // Generate a candidate TR tract by copying the provided motif 'i' times & score it
+            // Separate this from the .get() to postpone computation to until we need it
+
+            explored_sizes.insert(i);
+            let i_score = score_candidate(&aligner, motif, i as usize, flank_left_seq, flank_right_seq);
+
+            n_explored += 1;
+
+            if best_size_this_round.is_none() || i_score > best_score_this_round {
+                best_size_this_round = Some(i);
+                best_score_this_round = i_score;
+            }
+        }
 
         if let Some(bstr) = best_size_this_round {
             // If this round is the best we've got so far, update the record size/score for the final return
@@ -196,7 +205,10 @@ pub fn get_repeat_count(
                     return ((best_size, best_score), n_explored, best_size - start_count);
                 }
 
-                if lsr > 1 && ((best_score - max_init_score).abs() as f64 / max_init_score as f64) < 0.05 {
+                score_diff = (best_score - max_init_score).abs();
+                rel_score_diff = score_diff as f64 / max_init_score as f64;
+
+                if lsr > 1 && (rel_score_diff < 0.05 || score_diff <= 10) {
                     // reduce search range as we approach an optimum
                     lsr = 1;
                 }
