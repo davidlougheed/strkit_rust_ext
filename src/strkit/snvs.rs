@@ -7,7 +7,6 @@ use pyo3::pybacked::PyBackedStr;
 use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
 use rust_htslib::bcf;
 use rust_htslib::bcf::Read;
-use std::borrow::Borrow;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
