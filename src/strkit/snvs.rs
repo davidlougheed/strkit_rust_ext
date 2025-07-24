@@ -562,7 +562,7 @@ pub fn calculate_useful_snvs(
                     let (sb, idx, found) = find_base_at_pos(qs, q_coords, r_coords, snv_pos, last_pair_idx);
                     base = sb;
                     // 0 === indeterminate quality for out-of-range/gaps:
-                    qual = if found { fqqs.borrow()[idx] } else { 0 };
+                    qual = if found { fqqs[idx] } else { 0 };
                     last_pair_idx = idx;
                 }
             }
