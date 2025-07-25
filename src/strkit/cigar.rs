@@ -44,6 +44,9 @@ pub fn get_aligned_pair_matches_rs(
         }
     }
 
+    qi_vec.shrink_to_fit();
+    di_vec.shrink_to_fit();
+
     (qi_vec, di_vec)
 }
 
