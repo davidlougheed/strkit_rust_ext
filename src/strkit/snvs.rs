@@ -4,7 +4,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedStr;
-use pyo3::types::{IntoPyDict, PyBytes, PyDict, PyString};
+use pyo3::types::{PyBytes, PyDict, PyString};
 use rust_htslib::bcf;
 use rust_htslib::bcf::Read;
 use std::cmp;
