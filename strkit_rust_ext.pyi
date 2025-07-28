@@ -17,6 +17,29 @@ def consensus_seq(seqs: Sequence[str], logger: Logger, max_mdn_poa_length: int) 
 
 # locus
 
+class STRkitLocus:
+    t_idx: int
+
+    contig: str
+
+    left_coord: int
+    left_flank_coord: int  # left_coord - flank_size
+    right_coord: int
+    right_flank_coord: int  # right_coord + flank_size
+    ref_size: int
+
+    motif: str
+    motif_size: int
+
+    n_alleles: int
+
+    def __init__(self, t_idx: int, contig: str, left_coord: int, right_coord: int, motif: str, n_alleles: int, flank_size: int): ...
+
+    def log_str(self) -> str: ...
+
+    def to_dict(self) -> dict: ...
+
+
 def get_read_coords_from_matched_pairs(
     left_flank_coord: int,
     left_coord: int,

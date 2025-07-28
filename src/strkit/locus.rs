@@ -1,7 +1,9 @@
+use bincode;
 use numpy::{PyArray1, PyArray2, PyArrayMethods};
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyString};
+use pyo3::types::{PyAny, PyBytes, PyDict, PyString};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::aligned_coords::STRkitAlignedCoords;
@@ -10,6 +12,111 @@ use crate::strkit::snvs::{CandidateSNVs, get_read_snvs, calculate_useful_snvs};
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 use super::snvs::UsefulSNVsParams;
+
+
+#[derive(Clone, Deserialize, Serialize)]
+#[pyclass(module = "strkit_rust_ext")]
+pub struct STRkitLocus {
+    #[pyo3(get)]
+    pub t_idx: usize,
+
+    #[pyo3(get)]
+    pub contig: String,
+
+    #[pyo3(get)]
+    pub left_coord: i32,
+    #[pyo3(get)]
+    pub left_flank_coord: i32,
+    #[pyo3(get)]
+    pub right_coord: i32,
+    #[pyo3(get)]
+    pub right_flank_coord: i32,
+    #[pyo3(get)]
+    pub ref_size: i32, // reference size, in terms of coordinates
+
+    #[pyo3(get)]
+    pub motif: String,
+    #[pyo3(get)]
+    pub motif_size: usize,
+
+    #[pyo3(get)]
+    pub n_alleles: usize,
+
+    _flank_size: i32,
+}
+
+#[pymethods]
+impl STRkitLocus {
+    #[new]
+    fn py_new(
+        t_idx: usize,
+        contig: &str,
+        left_coord: i32,
+        right_coord: i32,
+        motif: &str,
+        n_alleles: usize,
+        flank_size: i32,
+    ) -> PyResult<Self> {
+        Ok(
+            STRkitLocus {
+                t_idx,
+
+                contig: contig.to_string(),
+
+                left_coord,
+                left_flank_coord: left_coord - flank_size,
+                right_coord,
+                right_flank_coord: right_coord + flank_size,
+                ref_size: right_coord - left_coord,
+
+                motif: motif.to_string(),
+                motif_size: motif.len(),
+
+                n_alleles,
+
+                _flank_size: flank_size,
+            }
+        )
+    }
+
+    fn log_str(&self) -> String {
+        format!(
+            "locus {}: {}:{}-{} [{}]", self.t_idx, self.contig, self.left_coord, self.right_coord, self.motif
+        )
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let res = PyDict::new(py);
+        res.set_item("locus_index", self.t_idx).unwrap();
+        res.set_item("contig", self.contig.clone()).unwrap();
+        res.set_item("start", self.left_coord).unwrap();
+        res.set_item("end", self.right_coord).unwrap();
+        res.set_item("motif", self.motif.clone()).unwrap();
+        Ok(res)
+    }
+
+    pub fn __setstate__(&mut self, state: Bound<'_, PyBytes>) -> PyResult<()> {
+        (*self, _) = bincode::serde::decode_from_slice(state.as_bytes(), bincode::config::standard()).unwrap();
+        Ok(())
+    }
+
+    pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(&self, bincode::config::standard()).unwrap()))
+    }
+
+    pub fn __getnewargs__(&self) -> PyResult<(usize, String, i32, i32, String, usize, i32)> {
+        Ok((
+            self.t_idx,
+            self.contig.clone(),
+            self.left_coord,
+            self.right_coord,
+            self.motif.clone(),
+            self.n_alleles,
+            self._flank_size,
+        ))
+    }
+}
+
 
 fn _get_read_coords_from_matched_pairs(
     left_flank_coord: i32,
