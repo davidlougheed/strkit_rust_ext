@@ -44,9 +44,25 @@ fn _get_read_coords_from_matched_pairs(
 
     // -----------------------------------------------------------------------------------------------------------------
 
-    // Binary search for right flank end -------------------------------------------------------------------------------
+    // Binary search for left flank end (may "fail" if we don't have a pair for left_coord - 1 (i.e., there's a gap in
+    // the reference to the direct left of left_coord), in which case we can do it the slow way in O(n) time).
 
     let mut left_flank_end: i32 = -1;
+
+    let mut loop_start = lhs + 1;
+
+    let (lhs_end, lhs_end_found) = find_coord_idx_by_ref_pos(
+        &aligned_coords, (left_coord - 1) as usize, loop_start
+    );
+    if lhs_end_found {
+        left_flank_end = aligned_coords.query_coords[lhs_end] as i32 + 1;
+        loop_start = lhs_end + 1;
+    } else {
+        // eprintln!("lhs_end q_coord={}, found={}", q_coords[lhs_end] + 1, lhs_end_found);
+    }
+
+    // Binary search for right flank end -------------------------------------------------------------------------------
+
     let mut right_flank_start: i32 = -1;
     let mut right_flank_end: i32 = -1;
 
