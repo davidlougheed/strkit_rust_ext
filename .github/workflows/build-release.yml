@@ -121,63 +121,63 @@ jobs:
   #         name: wheels-windows-${{ matrix.target }}
   #         path: dist
 
-  windows:
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        include:
-          # - { sys: mingw64, env: x86_64 }
-          - { sys: ucrt64,  env: ucrt-x86_64 }
+  # windows:
+  #   runs-on: windows-latest
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         # - { sys: mingw64, env: x86_64 }
+  #         - { sys: ucrt64,  env: ucrt-x86_64 }
 
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up MSYS2 MinGW-W64
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: ${{matrix.sys}}
-          update: false
-          install: >-
-            mingw-w64-${{matrix.env}}-autotools
-            mingw-w64-${{matrix.env}}-bzip2
-            mingw-w64-${{matrix.env}}-curl
-            mingw-w64-${{matrix.env}}-libdeflate
-            mingw-w64-${{matrix.env}}-toolchain
-            mingw-w64-${{matrix.env}}-tools-git
-            mingw-w64-${{matrix.env}}-xz
-            mingw-w64-${{matrix.env}}-zlib
-            mingw-w64-${{matrix.env}}-cmake
-            mingw-w64-${{matrix.env}}-ninja
-            mingw-w64-${{matrix.env}}-rust
-            mingw-w64-${{matrix.env}}-python
-            mingw-w64-${{matrix.env}}-python-maturin
-      - name: Build
-        shell: msys2 {0}
-        run: |
-          export PATH="/mingw64/bin:$PATH:/c/Program Files/Git/bin"
-          export RUST_BACKTRACE=1
-          export PARASAIL_NO_VENDOR=1
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up MSYS2 MinGW-W64
+  #       uses: msys2/setup-msys2@v2
+  #       with:
+  #         msystem: ${{matrix.sys}}
+  #         update: false
+  #         install: >-
+  #           mingw-w64-${{matrix.env}}-autotools
+  #           mingw-w64-${{matrix.env}}-bzip2
+  #           mingw-w64-${{matrix.env}}-curl
+  #           mingw-w64-${{matrix.env}}-libdeflate
+  #           mingw-w64-${{matrix.env}}-toolchain
+  #           mingw-w64-${{matrix.env}}-tools-git
+  #           mingw-w64-${{matrix.env}}-xz
+  #           mingw-w64-${{matrix.env}}-zlib
+  #           mingw-w64-${{matrix.env}}-cmake
+  #           mingw-w64-${{matrix.env}}-ninja
+  #           mingw-w64-${{matrix.env}}-rust
+  #           mingw-w64-${{matrix.env}}-python
+  #           mingw-w64-${{matrix.env}}-python-maturin
+  #     - name: Build
+  #       shell: msys2 {0}
+  #       run: |
+  #         export PATH="/mingw64/bin:$PATH:/c/Program Files/Git/bin"
+  #         export RUST_BACKTRACE=1
+  #         export PARASAIL_NO_VENDOR=1
 
-          echo "${LD_LIBRARY_PATH}"
+  #         echo "${LD_LIBRARY_PATH}"
 
-          git clone https://github.com/davidlougheed/parasail
-          cd parasail
-          mkdir build
-          cd build
-          cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
-          # -DINT64_LITERAL_SUFFIX_I64=0 -DINT64_LITERAL_SUFFIX_LL=1
-          cat config.h
-          echo "----------------"
-          cmake --build . --target parasail
-          export LD_LIBRARY_PATH="$(pwd):${LD_LIBRARY_PATH}"
-          ls -lh
-          cd ../..
+  #         git clone https://github.com/davidlougheed/parasail
+  #         cd parasail
+  #         mkdir build
+  #         cd build
+  #         cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
+  #         # -DINT64_LITERAL_SUFFIX_I64=0 -DINT64_LITERAL_SUFFIX_LL=1
+  #         cat config.h
+  #         echo "----------------"
+  #         cmake --build . --target parasail
+  #         export LD_LIBRARY_PATH="$(pwd):${LD_LIBRARY_PATH}"
+  #         ls -lh
+  #         cd ../..
 
-          maturin build --release --verbose --jobs 2 --out dist
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-windows-w64
-          path: dist
+  #         maturin build --release --verbose --jobs 2 --out dist
+  #     - name: Upload wheels
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wheels-windows-w64
+  #         path: dist
 
   macos:
     runs-on: macos-latest
@@ -219,7 +219,7 @@ jobs:
     name: Release
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
-    needs: [test, linux, macos, windows, sdist]
+    needs: [test, linux, macos, sdist] # windows,
     steps:
       - uses: actions/download-artifact@v4
         with:
