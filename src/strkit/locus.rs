@@ -101,7 +101,7 @@ impl STRkitLocus {
     }
 
     pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(&self, bincode::config::standard()).unwrap()))
+        Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 
     pub fn __getnewargs__(&self) -> PyResult<(usize, String, i32, i32, String, usize, i32)> {
