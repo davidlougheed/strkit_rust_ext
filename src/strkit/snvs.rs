@@ -11,6 +11,7 @@ use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
+use crate::aligned_coords::STRkitAlignedCoords;
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 static SNV_OUT_OF_RANGE_CHAR: char = '-';
@@ -352,7 +353,7 @@ pub fn get_snvs_simple (
     res
 }
 
-pub fn get_read_snvs_rs(
+pub fn get_read_snvs(
     query_sequence: &str,
     query_quals: &[u8],
     ref_seq: &str,
@@ -396,87 +397,19 @@ pub fn get_read_snvs_rs(
     }
 }
 
-#[pyfunction]
-pub fn get_read_snvs<'py>(
-    py: Python<'py>,
-    query_sequence: Bound<'py, PyString>,
-    query_quals: Bound<'py, PyArray1<u8>>,
-    ref_seq: Bound<'py, PyString>,
-    query_coords: Bound<'py, PyArray1<u64>>,
-    ref_coords: Bound<'py, PyArray1<u64>>,
-    ref_coord_start: usize,
-    tr_start_pos: usize,
-    tr_end_pos: usize,
-    contiguous_threshold: usize,
-    max_snv_group_size: usize,
-    too_many_snvs_threshold: usize,
-    entropy_flank_size: usize,
-    entropy_threshold: f32,
-) -> Bound<'py, PyDict> {
-    // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
-    // surrounded by a stretch of aligned bases of a specified size on either side.
-    // Returns a hash map of <position, base>
-
-    let qqr = query_quals.readonly();
-    let qq = qqr.as_slice().unwrap();
-
-    let qr = query_coords.readonly();
-    let rr = ref_coords.readonly();
-
-    let qc = qr.as_slice().unwrap();
-    let rc = rr.as_slice().unwrap();
-
-    let params = UsefulSNVsParams {
-        contiguous_threshold,
-        max_snv_group_size,
-        too_many_snvs_threshold,
-        entropy_flank_size,
-        entropy_threshold,
-    };
-
-    let snvs = get_snvs_simple(
-        query_sequence.to_str().unwrap(),
-        qq,
-        ref_seq.to_str().unwrap(),
-        qc,
-        rc,
-        ref_coord_start,
-        tr_start_pos,
-        tr_end_pos,
-        &params,
-    );
-
-    if snvs.len() >= too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
-        get_snvs_meticulous(
-            query_sequence.to_str().unwrap(),
-            qq,
-            ref_seq.to_str().unwrap(),
-            qc,
-            rc,
-            ref_coord_start,
-            tr_start_pos,
-            tr_end_pos,
-            &params,
-        ).into_py_dict(py).unwrap()
-    } else {
-        snvs.into_py_dict(py).unwrap()
-    }
-}
-
 fn find_base_at_pos(
     query_sequence: &str,
-    q_coords: &[u64],
-    r_coords: &[u64],
+    aligned_coords: &STRkitAlignedCoords,
     t: usize,
     start_left: usize,
 ) -> (char, usize, bool) {
-    let (idx, found) = find_coord_idx_by_ref_pos(r_coords, t, start_left);
+    let (idx, found) = find_coord_idx_by_ref_pos(&aligned_coords, t, start_left);
 
     if found {
         // Even if not in SNV set, it is not guaranteed to be a reference base, since
         // it's possible it was surrounded by too much other variation during the original
         // SNV getter algorithm.
-        let qc = query_sequence.chars().nth(q_coords[idx] as usize).unwrap();
+        let qc = query_sequence.chars().nth(aligned_coords.query_coords[idx] as usize).unwrap();
         (qc, idx, found)
     } else {
         // Nothing found, so must have been a gap
@@ -487,8 +420,7 @@ fn find_base_at_pos(
 pub fn calculate_useful_snvs(
     py: Python<'_>,
     read_dict_extra: Bound<'_, PyDict>,
-    read_q_coords: Bound<'_, PyDict>,
-    read_r_coords: Bound<'_, PyDict>,
+    read_aligned_coords: &Bound<'_, PyDict>,
     read_snvs: HashMap<String, HashMap<usize, (char, u8)>>,
     locus_snvs: HashSet<usize>,
     min_allele_reads: usize,
@@ -525,20 +457,7 @@ pub fn calculate_useful_snvs(
                 .readonly();
         let fqqs = fqqs_i.as_slice()?;
 
-        let qrt = read_q_coords
-            .get_item(&rn)?
-            .unwrap();
-        let qr = qrt
-            .downcast::<PyArray1<u64>>()?
-            .readonly();
-        let q_coords = qr.as_slice()?;
-        let rr =
-            read_r_coords
-                .get_item(&rn)?
-                .unwrap()
-                .downcast_into::<PyArray1<u64>>()?
-                .readonly();
-        let r_coords = rr.as_slice()?;
+        let aligned_coords = read_aligned_coords.get_item(&rn)?.unwrap().downcast_into::<STRkitAlignedCoords>()?;
 
         let segment_start = read_dict_extra_for_read.get_item(intern!(py, "_ref_start"))?
             .unwrap().extract::<usize>()?;
@@ -558,7 +477,7 @@ pub fn calculate_useful_snvs(
                 } else {
                     // Binary search for base from correct pair
                     //  - We go in order, so we don't have to search left of the last pair index we tried.
-                    let (sb, idx, found) = find_base_at_pos(qs, q_coords, r_coords, snv_pos, last_pair_idx);
+                    let (sb, idx, found) = find_base_at_pos(qs, &aligned_coords.borrow(), snv_pos, last_pair_idx);
                     base = sb;
                     // 0 === indeterminate quality for out-of-range/gaps:
                     qual = if found { fqqs[idx] } else { 0 };

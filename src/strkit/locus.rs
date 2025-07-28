@@ -1,11 +1,12 @@
-use numpy::{ToPyArray, PyArray1, PyArray2, PyArrayMethods};
+use numpy::{PyArray1, PyArray2, PyArrayMethods};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyString};
 use std::collections::{HashMap, HashSet};
 
+use crate::aligned_coords::STRkitAlignedCoords;
 use crate::strkit::cigar::get_aligned_pair_matches_rs;
-use crate::strkit::snvs::{CandidateSNVs, get_read_snvs_rs, calculate_useful_snvs};
+use crate::strkit::snvs::{CandidateSNVs, get_read_snvs, calculate_useful_snvs};
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 use super::snvs::UsefulSNVsParams;
@@ -18,18 +19,17 @@ fn _get_read_coords_from_matched_pairs(
     motif: &str,
     motif_size: i32,
     query_seq: &str,
-    q_coords: &[u64],
-    r_coords: &[u64],
+    aligned_coords: &STRkitAlignedCoords,
 ) -> (i32, i32, i32, i32) {
     // Skip gaps on either side to find mapped flank indices
 
     // Binary search for left flank start ------------------------------------------------------------------------------
 
-    let (mut lhs, found) = find_coord_idx_by_ref_pos(r_coords, left_flank_coord as usize, 0);
+    let (mut lhs, found) = find_coord_idx_by_ref_pos(&aligned_coords, left_flank_coord as usize, 0);
 
     // lhs now contains the index for the closest starting coordinate to left_flank_coord
 
-    if !found && (lhs == 0 || lhs == r_coords.len()) {
+    if !found && (lhs == 0 || lhs == aligned_coords.ref_coords.len()) {
         // Completely out of bounds; either right at the start or inserting after the end
         return (-1, -1, -1, -1);
     }
@@ -40,7 +40,7 @@ fn _get_read_coords_from_matched_pairs(
         lhs -=1;
     }
 
-    let left_flank_start: i32 = q_coords[lhs] as i32;
+    let left_flank_start: i32 = aligned_coords.query_coords[lhs] as i32;
 
     // -----------------------------------------------------------------------------------------------------------------
 
@@ -52,9 +52,9 @@ fn _get_read_coords_from_matched_pairs(
 
     let mut last_idx: i32 = -1;
 
-    for i in lhs+1..q_coords.len() {
-        let query_coord = q_coords[i] as i32;
-        let ref_coord = r_coords[i] as i32;
+    for i in loop_start..aligned_coords.query_coords.len() {
+        let query_coord = aligned_coords.query_coords[i] as i32;
+        let ref_coord = aligned_coords.ref_coords[i] as i32;
 
         // Skip gaps on either side to find mapped flank indices
 
@@ -96,8 +96,7 @@ pub fn get_read_coords_from_matched_pairs(
     motif: &str,
     motif_size: i32,
     query_seq: &str,
-    q_coords: &Bound<'_, PyArray1<u64>>,
-    r_coords: &Bound<'_, PyArray1<u64>>,
+    aligned_coords: &Bound<'_, STRkitAlignedCoords>,
 ) -> (i32, i32, i32, i32) {
     _get_read_coords_from_matched_pairs(
         left_flank_coord,
@@ -107,8 +106,7 @@ pub fn get_read_coords_from_matched_pairs(
         motif,
         motif_size,
         query_seq,
-        q_coords.readonly().as_slice().unwrap(),
-        r_coords.readonly().as_slice().unwrap(),
+        &aligned_coords.borrow(),
     )
 }
 
@@ -124,8 +122,8 @@ pub fn get_pairs_and_tr_read_coords<'py>(
     motif: &str,
     motif_size: i32,
     query_seq: &str,
-) -> (Option<(Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>)>, i32, i32, i32, i32) {
-    let (q_coords, r_coords) = get_aligned_pair_matches_rs(cigar, 0, segment_start);
+) -> (Option<Py<STRkitAlignedCoords>>, i32, i32, i32, i32) {
+    let aligned_coords = get_aligned_pair_matches_rs(cigar, 0, segment_start);
     let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) = _get_read_coords_from_matched_pairs(
         left_flank_coord,
         left_coord,
@@ -134,8 +132,7 @@ pub fn get_pairs_and_tr_read_coords<'py>(
         motif,
         motif_size,
         query_seq,
-        &q_coords,
-        &r_coords,
+        &aligned_coords,
     );
 
     if left_flank_start == -1 || left_flank_end == -1 || right_flank_start == -1 || right_flank_end == -1 {
@@ -143,7 +140,7 @@ pub fn get_pairs_and_tr_read_coords<'py>(
         (None, left_flank_start, left_flank_end, right_flank_start, right_flank_end)
     } else {
         (
-            Some((q_coords.to_pyarray(py), r_coords.to_pyarray(py))),
+            Some(Py::new(py, aligned_coords).unwrap()),
             left_flank_start,
             left_flank_end,
             right_flank_start,
@@ -160,8 +157,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_most_coord: usize,
     ref_cache: &str,
     read_dict_extra: Bound<PyDict>,
-    read_q_coords: Bound<PyDict>,
-    read_r_coords: Bound<PyDict>,
+    read_aligned_coords: &Bound<PyDict>,
     candidate_snvs_dict: &Bound<'_, CandidateSNVs>,
     min_allele_reads: usize,
     significant_clip_snv_take_in: usize,
@@ -204,16 +200,17 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             )?;
         }
 
-        let query_coords =
-            read_q_coords
+        let aligned_coords =
+            read_aligned_coords
                 .get_item(&rn)?
                 .unwrap()
-                .downcast_into::<PyArray1<u64>>()?
-                .readonly();
-        let query_coords_len = query_coords.len().unwrap();
+                .downcast_into::<STRkitAlignedCoords>()?
+                // .downcast_into::<Py<STRkitAlignedCoords>>()?
+                .borrow();
+        let coords_len = aligned_coords.query_coords.len();
 
         let twox_takein = significant_clip_snv_take_in * 2;
-        if query_coords_len < twox_takein {
+        if coords_len < twox_takein {
             logger.call_method1(
                 intern!(py, "warning"),
                 (
@@ -226,21 +223,19 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             continue;
         }
 
-        let rca = read_r_coords.get_item(&rn).unwrap().unwrap();
-        let ref_coords = rca.downcast::<PyArray1<u64>>().unwrap().readonly();
-
         let qsi = read_dict_extra_for_read.get_item(intern!(py, "_qs"))?.unwrap();
         let query_sequence = qsi.extract::<&str>()?;
         let fqqs_i1 = read_dict_extra_for_read.get_item(intern!(py, "_fqqs"))?.unwrap();
         let fqqs_i2 = fqqs_i1.downcast::<PyArray1<u8>>()?.readonly();
         let fqqs = fqqs_i2.as_slice()?;
 
-        let snvs = get_read_snvs_rs(
+        let snvs = get_read_snvs(
             query_sequence,
             fqqs,
             ref_cache,
-            &query_coords.as_slice().unwrap()[scl..(query_coords_len - scr)],
-            &ref_coords.as_slice().unwrap()[scl..(ref_coords.len().unwrap() - scr)],
+            // aligned coords without clipping at ends
+            &aligned_coords.query_coords[scl..(coords_len - scr)],
+            &aligned_coords.ref_coords[scl..(coords_len - scr)],
             left_most_coord,
             left_coord_adj,
             right_coord_adj,
@@ -261,5 +256,5 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
 
     // --------------------------------------------------------------------------------------------
 
-    calculate_useful_snvs(py, read_dict_extra, read_q_coords, read_r_coords, read_snvs, locus_snvs, min_allele_reads)
+    calculate_useful_snvs(py, read_dict_extra, read_aligned_coords, read_snvs, locus_snvs, min_allele_reads)
 }

@@ -1,11 +1,13 @@
-use numpy::{PyArray1, PyArray2, PyArrayMethods, ToPyArray};
+use numpy::{PyArray2, PyArrayMethods};
 use pyo3::prelude::*;
+
+use crate::aligned_coords::STRkitAlignedCoords;
 
 pub fn get_aligned_pair_matches_rs(
     cigar: &Bound<'_, PyArray2<u32>>,
     query_start: u64,
     ref_start: u64,
-) -> (Vec<u64>, Vec<u64>) {
+) -> STRkitAlignedCoords {
     let mut qi = query_start;
     let mut di = ref_start;
 
@@ -47,7 +49,7 @@ pub fn get_aligned_pair_matches_rs(
     qi_vec.shrink_to_fit();
     di_vec.shrink_to_fit();
 
-    (qi_vec, di_vec)
+    STRkitAlignedCoords { query_coords: qi_vec, ref_coords: di_vec }
 }
 
 
@@ -57,8 +59,7 @@ pub fn get_aligned_pair_matches<'py>(
     cigar: &Bound<'py, PyArray2<u32>>,
     query_start: u64,
     ref_start: u64,
-) -> (Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<u64>>) {
-    let (qi_vec, di_vec) = get_aligned_pair_matches_rs(cigar, query_start, ref_start);
-
-    (qi_vec.to_pyarray(py), di_vec.to_pyarray(py))
+) -> PyResult<Py<STRkitAlignedCoords>> {
+    let aligned_coords = get_aligned_pair_matches_rs(cigar, query_start, ref_start);
+    Py::new(py, aligned_coords)
 }

@@ -3,6 +3,14 @@ from logging import Logger
 from numpy.typing import NDArray
 from typing import Literal, Optional, Sequence, Union
 
+# aligned_coords
+
+class STRkitAlignedCoords:
+    def __init__(self, query_coords: NDArray[numpy.uint64], ref_coords: NDArray[numpy.uint64]): ...
+
+    def query_coord_at_idx(self, idx: int) -> int: ...
+
+
 # consensus
 
 def consensus_seq(seqs: Sequence[str], logger: Logger, max_mdn_poa_length: int) -> Optional[tuple[str, Literal["single", "poa", "best_rep"]]]: ...
@@ -17,8 +25,7 @@ def get_read_coords_from_matched_pairs(
     motif: str,
     motif_size: int,
     query_seq: str,
-    q_coords: NDArray[numpy.uint64],
-    r_coords: NDArray[numpy.uint64],
+    aligned_coords: STRkitAlignedCoords,
 ) -> tuple[int, int, int, int]: ...
 
 def get_pairs_and_tr_read_coords(
@@ -31,7 +38,7 @@ def get_pairs_and_tr_read_coords(
     motif: str,
     motif_size: int,
     query_seq: str,
-) -> tuple[Optional[tuple[NDArray[numpy.uint64], NDArray[numpy.uint64]]], int, int, int, int]: ...
+) -> tuple[Optional[STRkitAlignedCoords], int, int, int, int]: ...
 
 def process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_coord_adj: int,
@@ -39,8 +46,7 @@ def process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_most_coord: int,
     ref_cache: str,
     read_dict_extra: dict[str, dict],
-    read_q_coords: dict[str, NDArray[numpy.uint64]],
-    read_r_coords: dict[str, NDArray[numpy.uint64]],
+    read_aligned_coords: dict[str, STRkitAlignedCoords],
     candidate_snvs_dict: CandidateSNVs,
     min_allele_reads: int,
     significant_clip_snv_take_in: int,
@@ -72,27 +78,11 @@ def shannon_entropy(
     seq: bytes,
 ) -> float: ...
 
-def get_read_snvs(
-    query_sequence: str,
-    query_quals: list[int],
-    ref_seq: str,
-    query_coords: list[int],
-    ref_coords: list[int],
-    ref_coord_start: int,
-    tr_start_pos: int,
-    tr_end_pos: int,
-    contiguous_threshold: int,
-    max_snv_group_size: int,
-    too_many_snvs_threshold: int,
-    entropy_flank_size: int,
-    entropy_threshold: float,
-) -> dict[int, str]: ...
-
 def get_aligned_pair_matches(
     cigar: NDArray[numpy.uint32],
     query_start: int,
     ref_start: int,
-) -> tuple[NDArray[numpy.uint64], NDArray[numpy.uint64]]: ...
+) -> STRkitAlignedCoords: ...
 
 
 # reads
@@ -146,3 +136,7 @@ def get_repeat_count(
     local_search_range: int,
     step_size: int,
 ) -> tuple[tuple[int, int], int, int]: ...
+
+# utils
+
+def find_coord_idx_by_ref_pos(aligned_coords: STRkitAlignedCoords, target: int, start_left: int) -> tuple[int, bool]: ...
