@@ -39,9 +39,25 @@ fn best_representative<'a>(seqs: &'a [&str]) -> Option<&'a str> {
     best representative exist, the first one is returned. If |best| == |seqs| or |best| == 0, None is returned since there
     is effectively no true consensus.
     */
+    best_representatives(seqs).into_iter().next()
+}
 
-    let mut res: Vec<&str> = Vec::from_iter(best_representatives(seqs));
-    res.pop()
+
+fn majority_consensus_from_msa(aligned_seqs: &[&[u8]], aligned_len: usize) -> String {
+    (0..aligned_len).filter_map(|i| {
+        let mut counter = [0usize; 256];
+        aligned_seqs.iter().for_each(|s| {
+            counter[s[i] as usize] += 1;
+        });
+        let mode_idx = counter
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(cmp::Ordering::Equal))
+            .map(|(idx, _)| idx)
+            .unwrap();
+
+        (mode_idx != 255 && mode_idx != GAP_CHAR_ORD).then_some(mode_idx as u8 as char)
+    }).collect::<String>()
 }
 
 
@@ -82,27 +98,12 @@ fn poa_consensus_seq(seqs: &[&str]) -> Option<String> {
         let mut max_aligned_len: usize = 0;
 
         for s in pretty_split.into_iter().filter(|&z| !z.is_empty()) {
-            let s_seq = s.split('\t').nth(1).unwrap().as_bytes();
+            let s_seq: &[u8] = s.split('\t').nth(1).unwrap().as_bytes();
             max_aligned_len = cmp::max(max_aligned_len, s_seq.len());
             aligned_seqs.push(s_seq);
         }
 
-        Some(
-            (0..max_aligned_len).filter_map(|i| {
-                let mut counter = [0usize; 256];
-                aligned_seqs.iter().for_each(|&s| {
-                    counter[s[i] as usize] += 1;
-                });
-                let mode_idx = counter
-                    .iter()
-                    .enumerate()
-                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(cmp::Ordering::Equal))
-                    .map(|(idx, _)| idx)
-                    .unwrap();
-
-                (mode_idx != 255 && mode_idx != GAP_CHAR_ORD).then_some(mode_idx as u8 as char)
-            }).collect::<String>()
-        )
+        Some(majority_consensus_from_msa(&aligned_seqs, max_aligned_len))
     }).ok()?
 }
 
