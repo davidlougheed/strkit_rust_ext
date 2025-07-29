@@ -315,7 +315,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     ref_cache: &str,
     read_dict_extra: Bound<PyDict>,
     read_aligned_coords: &Bound<PyDict>,
-    candidate_snvs_dict: &Bound<'_, CandidateSNVs>,
+    candidate_snvs: &Bound<'_, CandidateSNVs>,
     min_allele_reads: usize,
     significant_clip_snv_take_in: usize,
     only_known_snvs: bool,
@@ -401,7 +401,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         );
 
         for &p in snvs.keys() {
-            if !only_known_snvs || candidate_snvs_dict.borrow().snvs.contains_key(&p) {
+            if !only_known_snvs || candidate_snvs.borrow().snvs.contains_key(&p) {
                 locus_snvs.insert(p);
             }
         }

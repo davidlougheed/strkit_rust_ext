@@ -85,14 +85,17 @@ def get_pairs_and_tr_read_coords(
 def process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_coord_adj: int,
     right_coord_adj: int,
+    # ---
     left_most_coord: int,
     ref_cache: str,
+    # ---
     read_dict_extra: dict[str, dict],
     read_aligned_coords: dict[str, STRkitAlignedCoords],
-    candidate_snvs_dict: CandidateSNVs,
+    candidate_snvs: CandidateSNVs,
     min_allele_reads: int,
     significant_clip_snv_take_in: int,
     only_known_snvs: bool,
+    # ---
     logger: Logger,
     locus_log_str: str,
 ) -> list[tuple[int, int]]: ...
