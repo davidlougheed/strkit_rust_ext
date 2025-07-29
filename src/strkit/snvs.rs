@@ -301,7 +301,7 @@ pub fn get_snvs_meticulous(
     snvs
 }
 
-pub fn get_snvs_simple (
+pub fn get_snvs_simple(
     query_sequence: &str,
     query_quals: &[u8],
     ref_seq: &str,

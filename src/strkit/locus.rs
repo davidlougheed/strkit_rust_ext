@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::strkit::cigar::get_aligned_pair_matches_rs;
-use crate::strkit::snvs::{CandidateSNVs, get_read_snvs, calculate_useful_snvs};
+use crate::strkit::snvs::{CandidateSNVs, calculate_useful_snvs, get_read_snvs};
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 use super::snvs::UsefulSNVsParams;
@@ -144,7 +144,7 @@ fn _get_read_coords_from_matched_pairs(
     if !found {
         // Choose pair to the left of where we'd insert the pair to maintain sorted order, since we want the closest
         // starting coordinate to left_flank_coord which gives us enough flanking material.
-        lhs -=1;
+        lhs -= 1;
     }
 
     let left_flank_start: i32 = aligned_coords.query_coords[lhs] as i32;

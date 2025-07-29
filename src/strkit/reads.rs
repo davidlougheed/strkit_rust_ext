@@ -1,15 +1,15 @@
-use std::cmp;
-use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
 use numpy::ndarray::Array1;
 use numpy::{PyArray, PyArray1, ToPyArray};
 use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
 use rust_htslib::bam::ext::BamRecordExtensions;
-use rust_htslib::bam::{IndexedReader, Read};
 use rust_htslib::bam::record::{Aux, Record};
+use rust_htslib::bam::{IndexedReader, Read};
 use rust_htslib::errors::Error as RustHTSlibError;
+use std::cmp;
+use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
 
 #[pyclass]
 pub struct STRkitAlignedSegment {
@@ -35,18 +35,16 @@ pub struct STRkitAlignedSegment {
 
 fn _extract_i64_tag_value(a: Result<Aux<'_>, RustHTSlibError>) -> Option<i64> {
     match a {
-        Ok(value) => {
-            match value {
-                Aux::U8(v) => Some(v as i64),
-                Aux::U16(v) => Some(v as i64),
-                Aux::U32(v) => Some(v as i64),
-                Aux::I8(v) => Some(v as i64),
-                Aux::I16(v) => Some(v as i64),
-                Aux::I32(v) => Some(v as i64),
-                _ => None
-            }
+        Ok(value) => match value {
+            Aux::U8(v) => Some(v as i64),
+            Aux::U16(v) => Some(v as i64),
+            Aux::U32(v) => Some(v as i64),
+            Aux::I8(v) => Some(v as i64),
+            Aux::I16(v) => Some(v as i64),
+            Aux::I32(v) => Some(v as i64),
+            _ => None,
         },
-        Err(_) => None
+        Err(_) => None,
     }
 }
 
@@ -154,7 +152,7 @@ impl STRkitBAMReader {
                     // (so probably a large expansion...)
 
                     let crs = chimeric_read_status.entry(name.clone()).or_insert(0u8);
-                    *crs |= if supp {2u8} else {1u8};
+                    *crs |= if supp { 2u8 } else { 1u8 };
 
                     if self.skip_supp && supp {  // If configured, skip supplementary alignments
                         if self.debug_logs {  // Keep debug log level check in Rust to avoid needless Python call
@@ -228,7 +226,7 @@ impl STRkitBAMReader {
                         break;
                     }
                 }
-                Err(_) => panic!("Error reading alignment record")
+                Err(_) => panic!("Error reading alignment record"),
             }
         }
 
