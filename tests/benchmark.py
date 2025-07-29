@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from strkit_rust_ext import (
-    shannon_entropy, get_read_snvs, get_aligned_pair_matches, consensus_seq, get_repeat_count
+    shannon_entropy, get_aligned_pair_matches, consensus_seq, get_repeat_count
 )
 from .common import REF_SEQ, Q_QUALS, Q_SEQ, PAIRS, ALIGN_COORDS_Q, ALIGN_COORDS_R, CIGAR_OPS
 from .cigar import get_aligned_pairs_from_cigar
@@ -60,6 +60,8 @@ short_repeats = [
     "GTTTTTTGTTTTGTTTGTTTGTTTGTTTTTTT",
 ]
 
+LONG_REPEATS = (("AAC" * 200, "AAC" * 220, "AAC" * 320, "AAC" * 335))
+
 def main():
     dt = datetime.now()
     for _ in range(500000):
@@ -67,23 +69,23 @@ def main():
             shannon_entropy(s)
     print(f"shannon took {datetime.now() - dt}")
 
-    dt = datetime.now()
-    for _ in range(2000000):
-        # query_sequence: str,
-        # query_quals: list[int],
-        # ref_seq: str,
-        # query_coords: list[int],
-        # ref_coords: list[int],
-        # ref_coord_start: int,
-        # tr_start_pos: int,
-        # tr_end_pos: int,
-        # contiguous_threshold: int,
-        # max_snv_group_size: int,
-        # too_many_snvs_threshold: int,
-        # entropy_flank_size: int,
-        # entropy_threshold: float,
-        get_read_snvs(Q_SEQ, Q_QUALS, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 0, 5, 20, 10, 0.0)
-    print(f"get_read_snvs took {datetime.now() - dt}")
+    # dt = datetime.now()
+    # for _ in range(2000000):
+    #     # query_sequence: str,
+    #     # query_quals: list[int],
+    #     # ref_seq: str,
+    #     # query_coords: list[int],
+    #     # ref_coords: list[int],
+    #     # ref_coord_start: int,
+    #     # tr_start_pos: int,
+    #     # tr_end_pos: int,
+    #     # contiguous_threshold: int,
+    #     # max_snv_group_size: int,
+    #     # too_many_snvs_threshold: int,
+    #     # entropy_flank_size: int,
+    #     # entropy_threshold: float,
+    #     get_read_snvs(Q_SEQ, Q_QUALS, REF_SEQ, ALIGN_COORDS_Q, ALIGN_COORDS_R, 994, 994, 1000, 0, 5, 20, 10, 0.0)
+    # print(f"get_read_snvs took {datetime.now() - dt}")
 
     dt = datetime.now()
     for _ in range(50000):
@@ -110,12 +112,13 @@ def main():
     n_iters = 100
     dt = datetime.now()
     for _ in range(n_iters):
-        consensus_seq(
-            (("AAC" * 200, "AAC" * 220, "AAC" * 320, "AAC" * 335)),
-            logger,
-            100000,
-        )
+        consensus_seq(LONG_REPEATS, logger, 100000)
     print(f"{n_iters} iters of consensus_seq with long repeats took {datetime.now() - dt}")
+
+    dt = datetime.now()
+    for _ in range(n_iters):
+        consensus_seq(LONG_REPEATS, logger, 0)
+    print(f"{n_iters} iters of consensus_seq (best_rep) with long repeats took {datetime.now() - dt}")
 
     dt = datetime.now()
     for _ in range(10000):
