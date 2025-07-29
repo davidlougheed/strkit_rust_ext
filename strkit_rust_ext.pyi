@@ -6,6 +6,9 @@ from typing import Literal, Optional, Sequence, Union
 # aligned_coords
 
 class STRkitAlignedCoords:
+    query_coords: list[int]
+    ref_coords: list[int]
+
     def __init__(self, query_coords: NDArray[numpy.uint64], ref_coords: NDArray[numpy.uint64]): ...
 
     def query_coord_at_idx(self, idx: int) -> int: ...

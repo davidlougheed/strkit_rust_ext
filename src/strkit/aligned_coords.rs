@@ -4,7 +4,9 @@ use pyo3::prelude::*;
 #[derive(Clone)]
 #[pyclass(frozen)]
 pub struct STRkitAlignedCoords {
+    #[pyo3(get)]
     pub query_coords: Vec<u64>,
+    #[pyo3(get)]
     pub ref_coords: Vec<u64>,
 }
 
