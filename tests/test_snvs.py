@@ -1,6 +1,6 @@
 import sys
 import time
-from strkit_rust_ext import shannon_entropy, get_read_snvs
+from strkit_rust_ext import shannon_entropy  # , get_read_snvs
 # from .common import REF_SEQ, Q_SEQ, Q_QUALS, ALIGN_COORDS_Q, ALIGN_COORDS_R, SNVS
 
 

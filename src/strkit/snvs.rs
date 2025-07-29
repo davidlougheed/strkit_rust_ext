@@ -180,14 +180,14 @@ fn _shannon_entropy_dna(data: &[u8]) -> f32 {
 
     // Calculate entropy based on [atgcATGC] content:
     let entropy: f32 = 0.0
-        - _byte_entropy_f32(data, data_len, 65u8)
-        - _byte_entropy_f32(data, data_len, 67u8)
-        - _byte_entropy_f32(data, data_len, 71u8)
-        - _byte_entropy_f32(data, data_len, 84u8)
-        - _byte_entropy_f32(data, data_len, 97u8)
-        - _byte_entropy_f32(data, data_len, 99u8)
-        - _byte_entropy_f32(data, data_len, 103u8)
-        - _byte_entropy_f32(data, data_len, 116u8);
+        - _byte_entropy_f32(data, data_len, 65u8) // A
+        - _byte_entropy_f32(data, data_len, 67u8) // C
+        - _byte_entropy_f32(data, data_len, 71u8) // G
+        - _byte_entropy_f32(data, data_len, 84u8) // T
+        - _byte_entropy_f32(data, data_len, 97u8) // a
+        - _byte_entropy_f32(data, data_len, 99u8) // c
+        - _byte_entropy_f32(data, data_len, 103u8) // g
+        - _byte_entropy_f32(data, data_len, 116u8); // t
 
     entropy
 }
@@ -279,7 +279,9 @@ pub fn get_snvs_meticulous(
 
         if read_base != ref_base {
             // If our entropy is ok, add this to the SNV group
-            let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
+            let seq = &qry_seq_bytes[
+                read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)
+            ];
             if _shannon_entropy_dna(seq) >= entropy_threshold {
                 snv_group.push((ref_pos, (read_base as char, query_quals[read_pos])));
             }
@@ -337,7 +339,10 @@ pub fn get_snvs_simple(
             continue;
         }
 
-        let seq = &qry_seq_bytes[read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)];
+        let seq = &qry_seq_bytes[
+            read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)
+        ];
+
         if _shannon_entropy_dna(seq) >= entropy_threshold {
             n_snvs += 1;
 
@@ -519,10 +524,17 @@ pub fn calculate_useful_snvs(
     let res: Vec<(usize, usize)> = sorted_snvs.iter().enumerate().filter_map(|(s_idx, s_pos)| {
         let snv_counter = snv_counters.get(s_pos).unwrap();
 
-        let n_alleles_meeting_threshold: usize = snv_counter.values().map(|&v| (v >= allele_read_threshold) as usize).sum();
+        let n_alleles_meeting_threshold: usize = snv_counter
+            .values()
+            .map(|&v| (v >= allele_read_threshold) as usize)
+            .sum();
+
         let n_reads_with_this_snv_called: usize = snv_counter.values().sum();
 
-        (n_alleles_meeting_threshold >= 2 && n_reads_with_this_snv_called >= total_read_threshold).then(|| (s_idx, sorted_snvs[s_idx]))
+        (
+            n_alleles_meeting_threshold >= 2
+            && n_reads_with_this_snv_called >= total_read_threshold
+        ).then(|| (s_idx, sorted_snvs[s_idx]))
     }).collect();
 
     Ok(res)
