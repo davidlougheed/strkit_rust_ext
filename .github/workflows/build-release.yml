@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        target: [x86_64, aarch64, armv7]  # x86 disabled for now
+        target: [x86_64, aarch64]  # x86, armv7 disabled for now
     steps:
       - uses: actions/checkout@v4
       - name: Build wheels
