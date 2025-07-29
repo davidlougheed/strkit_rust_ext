@@ -39,14 +39,38 @@ class STRkitLocus:
 
     def to_dict(self) -> dict: ...
 
+    def with_ref_data(
+        self,
+        left_coord_adj: int,
+        right_coord_adj: int,
+        ref_contig: str,
+        ref_cn: int,
+        ref_seq: str,
+        ref_left_flank_seq: str,
+        ref_right_flank_seq: str,
+        ref_total_seq: str,
+        ref_time: float,
+    ) -> "STRkitLocusWithRefData":
+        ...
+
+
+class STRkitLocusWithRefData:
+    locus_def: STRkitLocus
+
+    left_coord_adj: int
+    right_coord_adj: int
+
+    ref_contig: str
+    ref_cn: int
+    ref_seq: str
+    ref_left_flank_seq: str
+    ref_right_flank_seq: str
+    ref_total_seq: str
+    ref_time: float
+
 
 def get_read_coords_from_matched_pairs(
-    left_flank_coord: int,
-    left_coord: int,
-    right_coord: int,
-    right_flank_coord: int,
-    motif: str,
-    motif_size: int,
+    locus_with_ref_data: STRkitLocusWithRefData,
     query_seq: str,
     aligned_coords: STRkitAlignedCoords,
 ) -> tuple[int, int, int, int]: ...
@@ -54,12 +78,7 @@ def get_read_coords_from_matched_pairs(
 def get_pairs_and_tr_read_coords(
     cigar: NDArray[numpy.uint32],
     segment_start: int,
-    left_flank_coord: int,
-    left_coord: int,
-    right_coord: int,
-    right_flank_coord: int,
-    motif: str,
-    motif_size: int,
+    locus_with_ref_data: STRkitLocusWithRefData,
     query_seq: str,
 ) -> tuple[Optional[STRkitAlignedCoords], int, int, int, int]: ...
 

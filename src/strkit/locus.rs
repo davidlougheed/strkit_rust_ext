@@ -95,6 +95,35 @@ impl STRkitLocus {
         Ok(res)
     }
 
+    fn with_ref_data(
+        &self,
+        left_coord_adj: i32,
+        right_coord_adj: i32,
+        ref_contig: String,
+        ref_cn: i32,
+        ref_seq: String,
+        ref_left_flank_seq: String,
+        ref_right_flank_seq: String,
+        ref_total_seq: String,
+        ref_time: f64,
+    ) -> PyResult<STRkitLocusWithRefData> {
+        // Hacky Python-boundary-crossing version of a builder pattern
+        Ok(
+            STRkitLocusWithRefData {
+                locus_def: self.clone(), // If this becomes Rust-only, this can be a move instead.
+                left_coord_adj,
+                right_coord_adj,
+                ref_contig,
+                ref_cn,
+                ref_seq,
+                ref_left_flank_seq,
+                ref_right_flank_seq,
+                ref_total_seq,
+                ref_time,
+            }
+        )
+    }
+
     pub fn __setstate__(&mut self, state: Bound<'_, PyBytes>) -> PyResult<()> {
         (*self, _) = bincode::serde::decode_from_slice(state.as_bytes(), bincode::config::standard()).unwrap();
         Ok(())
@@ -117,14 +146,36 @@ impl STRkitLocus {
     }
 }
 
+#[derive(Clone)]
+#[pyclass(frozen)]
+pub struct STRkitLocusWithRefData {
+    pub locus_def: STRkitLocus,
+
+    #[pyo3(get)]
+    pub left_coord_adj: i32,
+    #[pyo3(get)]
+    pub right_coord_adj: i32,
+
+    #[pyo3(get)]
+    pub ref_contig: String,
+    #[pyo3(get)]
+    pub ref_cn: i32,
+    #[pyo3(get)]
+    pub ref_seq: String,
+    #[pyo3(get)]
+    pub ref_left_flank_seq: String,
+    #[pyo3(get)]
+    pub ref_right_flank_seq: String,
+    #[pyo3(get)]
+    pub ref_total_seq: String,
+    #[pyo3(get)]
+    pub ref_time: f64,
+
+    // This struct must be built with the STRkitLocus.with_ref_data builder function above.
+}
 
 fn _get_read_coords_from_matched_pairs(
-    left_flank_coord: i32,
-    left_coord: i32,
-    right_coord: i32,
-    right_flank_coord: i32,
-    motif: &str,
-    motif_size: i32,
+    locus_with_ref_data: &STRkitLocusWithRefData,
     query_seq: &str,
     aligned_coords: &STRkitAlignedCoords,
 ) -> (i32, i32, i32, i32) {
@@ -132,7 +183,9 @@ fn _get_read_coords_from_matched_pairs(
 
     // Binary search for left flank start ------------------------------------------------------------------------------
 
-    let (mut lhs, found) = find_coord_idx_by_ref_pos(&aligned_coords, left_flank_coord as usize, 0);
+    let (mut lhs, found) = find_coord_idx_by_ref_pos(
+        &aligned_coords, locus_with_ref_data.locus_def.left_flank_coord as usize, 0
+    );
 
     // lhs now contains the index for the closest starting coordinate to left_flank_coord
 
@@ -159,7 +212,9 @@ fn _get_read_coords_from_matched_pairs(
     let mut loop_start = lhs + 1;
 
     let (lhs_end, lhs_end_found) = find_coord_idx_by_ref_pos(
-        &aligned_coords, (left_coord - 1) as usize, loop_start
+        &aligned_coords,
+        (locus_with_ref_data.left_coord_adj - 1) as usize,
+        loop_start,
     );
     if lhs_end_found {
         left_flank_end = aligned_coords.query_coords[lhs_end] as i32 + 1;
@@ -169,6 +224,8 @@ fn _get_read_coords_from_matched_pairs(
     }
 
     // Binary search for right flank end -------------------------------------------------------------------------------
+
+    let motif_size = locus_with_ref_data.locus_def.motif_size as i32;
 
     let mut right_flank_start: i32 = -1;
     let mut right_flank_end: i32 = -1;
@@ -181,25 +238,29 @@ fn _get_read_coords_from_matched_pairs(
 
         // Skip gaps on either side to find mapped flank indices
 
-        if ref_coord < left_coord {
+        if ref_coord < locus_with_ref_data.left_coord_adj {
             // Coordinate here is exclusive - we don't want to include a gap between the flanking region and
             // the STR; if we include the left-most base of the STR, we will have a giant flanking region which
             // will include part of the tandem repeat itself.
-            left_flank_end = query_coord + 1;  // Add 1 to make it exclusive
-        } else if ref_coord >= right_coord && (
-            // Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
-            // in it right after we finished due to a subtle mis-alignment - this can be seen in the HTT alignments
-            // in bc1018
-            // TODO: do the same thing for the left side
-            right_flank_start == -1 ||
-            (
-                query_coord - last_idx >= motif_size &&
-                (ref_coord - right_coord <= motif_size * 2) &&
-                (query_seq[(last_idx as usize)..(query_coord as usize)].matches(motif).count() as f64 / ((query_coord - last_idx) / motif_size) as f64) >= 0.5
+            left_flank_end = query_coord + 1; // Add 1 to make it exclusive
+        } else if ref_coord >= locus_with_ref_data.right_coord_adj
+            && (
+                // Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
+                // in it right after we finished due to a subtle mis-alignment - this can be seen in the HTT alignments
+                // in bc1018
+                // TODO: do the same thing for the left side
+                right_flank_start == -1
+                    || (query_coord - last_idx >= motif_size
+                        && (ref_coord - locus_with_ref_data.right_coord_adj <= motif_size * 2)
+                        && (query_seq[(last_idx as usize)..(query_coord as usize)]
+                            .matches(&locus_with_ref_data.locus_def.motif)
+                            .count() as f64
+                            / ((query_coord - last_idx) / motif_size) as f64)
+                            >= 0.5)
             )
-        ) {
+        {
             right_flank_start = query_coord;
-        } else if ref_coord >= right_flank_coord {
+        } else if ref_coord >= locus_with_ref_data.locus_def.right_flank_coord {
             right_flank_end = query_coord;
             break;
         }
@@ -212,25 +273,11 @@ fn _get_read_coords_from_matched_pairs(
 
 #[pyfunction]
 pub fn get_read_coords_from_matched_pairs(
-    left_flank_coord: i32,
-    left_coord: i32,
-    right_coord: i32,
-    right_flank_coord: i32,
-    motif: &str,
-    motif_size: i32,
+    locus_with_ref_data: &STRkitLocusWithRefData,
     query_seq: &str,
     aligned_coords: &Bound<'_, STRkitAlignedCoords>,
 ) -> (i32, i32, i32, i32) {
-    _get_read_coords_from_matched_pairs(
-        left_flank_coord,
-        left_coord,
-        right_coord,
-        right_flank_coord,
-        motif,
-        motif_size,
-        query_seq,
-        &aligned_coords.borrow(),
-    )
+    _get_read_coords_from_matched_pairs(locus_with_ref_data, query_seq, &aligned_coords.borrow())
 }
 
 #[pyfunction]
@@ -238,25 +285,12 @@ pub fn get_pairs_and_tr_read_coords<'py>(
     py: Python<'py>,
     cigar: &Bound<'py, PyArray2<u32>>,
     segment_start: u64,
-    left_flank_coord: i32,
-    left_coord: i32,
-    right_coord: i32,
-    right_flank_coord: i32,
-    motif: &str,
-    motif_size: i32,
+    locus_with_ref_data: &Bound<'py, STRkitLocusWithRefData>,
     query_seq: &str,
 ) -> (Option<Py<STRkitAlignedCoords>>, i32, i32, i32, i32) {
     let aligned_coords = get_aligned_pair_matches_rs(cigar, 0, segment_start);
-    let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) = _get_read_coords_from_matched_pairs(
-        left_flank_coord,
-        left_coord,
-        right_coord,
-        right_flank_coord,
-        motif,
-        motif_size,
-        query_seq,
-        &aligned_coords,
-    );
+    let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) =
+        _get_read_coords_from_matched_pairs(&locus_with_ref_data.borrow(), query_seq, &aligned_coords);
 
     if left_flank_start == -1 || left_flank_end == -1 || right_flank_start == -1 || right_flank_end == -1 {
         // Avoid converting to Python objects / passing over Python-Rust boundary, return a None instead
