@@ -15,18 +15,34 @@ static GAP_CHAR_ORD: usize  = b'-' as usize;
 static BLANK_STR: &str = "";
 
 
-fn best_representatives<'a>(seqs: &'a [&str]) -> HashSet<&'a str> {
-    let mut ds = vec![0f64; seqs.len()];
+fn seqs_summed_levenshtein_similarity(seqs: &[&str]) -> Vec<f64> {
+    let n_seqs = seqs.len();
+    let mut similarity_memo: Vec<Option<f64>> = vec![None; n_seqs.pow(2)];
+    let mut ds = vec![0f64; n_seqs];
 
-    for i in 0..seqs.len() {
-        for j in 0..seqs.len() {
+    for i in 0..n_seqs {
+        for j in 0..n_seqs {
             if i == j { continue; }
-            ds[i] += normalized_levenshtein(seqs[i], seqs[j]);
+            // diagonal 2d matrix into 1d matrix (vector) index:
+            let memo_idx = cmp::min(i, j) * n_seqs + cmp::max(i, j);
+            if let Some(d) = similarity_memo[memo_idx] {
+                // Distance already computed; use the cached value
+                ds[i] += d;
+            } else {
+                // Need to compute the distance
+                let d = normalized_levenshtein(seqs[i], seqs[j]);
+                similarity_memo[memo_idx] = Some(d);
+                ds[i] += d;
+            }
         }
     }
 
-    let ms = ds.iter().max_by(|a, b| a.total_cmp(b));
+    ds
+}
 
+fn best_representatives<'a>(seqs: &'a [&str]) -> HashSet<&'a str> {
+    let ds = seqs_summed_levenshtein_similarity(seqs);
+    let ms = ds.iter().max_by(|a, b| a.total_cmp(b));
     ms.map(|max_score| {
         ds.iter().enumerate().filter(|&(_, s)| s == max_score).map(|(i, _)| seqs[i]).collect()
     }).unwrap_or(HashSet::new())
@@ -154,7 +170,7 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound
         // sequence vector as a tiebreaker.
         2 => {
             let mut seqs_set_vec: Vec<&PyBackedStr> = seqs_set.into_iter().collect();
-            seqs_set_vec.sort();
+            seqs_set_vec.sort_unstable();
             let i0_count = seqs_no_blanks.iter().filter(|&s| s == seqs_set_vec[0]).count();
             // Shortcut: if index 0 count < n_seqs / 2, usize cast is 1 (so we return index 1); otherwise return index 0.
             Some((seqs_set_vec[(i0_count < n_seqs / 2) as usize].to_string(), intern!(py, "best_rep")))
@@ -190,6 +206,12 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_seqs_summed_levenshtein_similarity() {
+        assert_eq!(seqs_summed_levenshtein_similarity(&vec!["A", "A", "A"]), vec![2.0, 2.0, 2.0]);
+        assert_eq!(seqs_summed_levenshtein_similarity(&vec!["AA", "AA", "AB"]), vec![1.5, 1.5, 1.0]);
+    }
 
     #[test]
     fn test_best_representatives() {
