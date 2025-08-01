@@ -188,9 +188,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.30"
+version = "1.2.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deec109607ca693028562ed836a5f1c4b8bd77755c4e132fc5ce11b0b6211ae7"
+checksum = "c3a42d84bb6b69d3a8b3eaacf0d88f179e1929695e1ad012b6cf64d9caaa5fd2"
 dependencies = [
  "jobserver",
  "libc",
@@ -275,6 +275,26 @@ name = "derive-new"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cdc8d50f426189eef89dac62fabfa0abb27d5cc008f25bf4156a0203325becc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "derive_more"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "093242cf7570c207c83073cf82f79706fe7b8317e98620a47d5be7c3d8497678"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -662,11 +682,12 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "libparasail-sys"
-version = "0.1.11"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4920061fc0b3fd0d54b5ec017dd4508380a57c57d63b0594935a152d4241e212"
+checksum = "cd3d6e652b0e7b11a1a921d29133fea06ac608bb13a8eb669c24caaa836d4083"
 dependencies = [
  "bindgen",
+ "cmake",
  "pkg-config",
 ]
 
@@ -891,14 +912,14 @@ dependencies = [
 
 [[package]]
 name = "parasail-rs"
-version = "0.7.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ad5376151771eeae63a65ed0f26548205322edb7198296839dd698f65b062ff"
+version = "0.8.0"
+source = "git+https://github.com/nsbuitrago/parasail-rs.git?branch=v0.8.1#5c6b224c44ad89c386cb1e3eb7697525fcf421a9"
 dependencies = [
+ "derive_more",
  "libc",
  "libparasail-sys",
  "log",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
