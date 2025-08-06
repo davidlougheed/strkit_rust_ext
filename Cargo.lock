@@ -912,8 +912,9 @@ dependencies = [
 
 [[package]]
 name = "parasail-rs"
-version = "0.8.0"
-source = "git+https://github.com/nsbuitrago/parasail-rs.git?branch=v0.8.1#5c6b224c44ad89c386cb1e3eb7697525fcf421a9"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8958e6b5caa4ba12bb41a1e4b980597aaabbc8f91763752ca6ed02f72a670ede"
 dependencies = [
  "derive_more",
  "libc",
