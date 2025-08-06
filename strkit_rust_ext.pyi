@@ -148,6 +148,16 @@ class STRkitAlignedSegment:
     ps: Optional[int]
 
 
+class STRkitLocusBlockSegments:
+    left_most_coord: int
+    right_most_coord: int
+
+    def get_segments_for_locus(
+        self,
+        locus: STRkitLocus,
+    ) -> tuple[NDArray, int, NDArray[numpy.ulonglong], dict[str, int], int, int]: ...
+
+
 class STRkitBAMReader:
     references: list[str]
 
@@ -163,13 +173,13 @@ class STRkitBAMReader:
         debug_logs: bool,
     ): ...
 
-    def get_overlapping_segments_and_related_data(
+    def get_overlapping_segments_and_related_data_for_block(
         self,
         contig: str,
         left_coord: int,
         right_coord: int,
-        locus_log_str: str,
-    ) -> tuple[NDArray, int, NDArray[numpy.ulonglong], dict[str, int], int, int]: ...
+        log_str: str,
+    ) -> STRkitLocusBlockSegments: ...
 
 
 # repeats

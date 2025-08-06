@@ -43,6 +43,7 @@ pub struct STRkitLocus {
     pub n_alleles: usize,
 
     _flank_size: i32,
+    _log_str: String,
 }
 
 #[pymethods]
@@ -57,6 +58,8 @@ impl STRkitLocus {
         n_alleles: usize,
         flank_size: i32,
     ) -> PyResult<Self> {
+        let log_str = format!("locus {}: {}:{}-{} [{}]", t_idx, contig, left_coord, right_coord, motif);
+
         Ok(
             STRkitLocus {
                 t_idx,
@@ -75,15 +78,12 @@ impl STRkitLocus {
                 n_alleles,
 
                 _flank_size: flank_size,
+                _log_str: log_str,
             }
         )
     }
 
-    fn log_str(&self) -> String {
-        format!(
-            "locus {}: {}:{}-{} [{}]", self.t_idx, self.contig, self.left_coord, self.right_coord, self.motif
-        )
-    }
+    pub fn log_str(&self) -> &str { &self._log_str }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let res = PyDict::new(py);

@@ -28,6 +28,7 @@ fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<reads::STRkitBAMReader>()?;
     m.add_class::<reads::STRkitAlignedSegment>()?;
+    m.add_class::<reads::STRkitLocusBlockSegments>()?;
 
     m.add_function(wrap_pyfunction!(repeats::get_repeat_count, m)?)?;
 

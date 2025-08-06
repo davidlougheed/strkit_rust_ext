@@ -7,10 +7,14 @@ use rust_htslib::bam::ext::BamRecordExtensions;
 use rust_htslib::bam::record::{Aux, Record};
 use rust_htslib::bam::{IndexedReader, Read};
 use rust_htslib::errors::Error as RustHTSlibError;
+use rust_lapper::{Interval, Lapper};
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
+use crate::locus::STRkitLocus;
+
+#[derive(Clone)]
 #[pyclass]
 pub struct STRkitAlignedSegment {
     #[pyo3(get)]
@@ -23,6 +27,10 @@ pub struct STRkitAlignedSegment {
     end: i64,
     #[pyo3(get)]
     is_reverse: bool,
+    #[pyo3(get)]
+    is_supplementary: bool,
+    #[pyo3(get)]
+    is_secondary: bool,
     #[pyo3(get)]
     query_sequence: String,
     _query_qualities: Array1<u8>,
@@ -68,9 +76,119 @@ impl STRkitAlignedSegment {
 
 
 #[pyclass]
+pub struct STRkitLocusBlockSegments {
+    #[pyo3(get)]
+    left_most_coord: i64,
+    #[pyo3(get)]
+    right_most_coord: i64,
+    segments: Vec<STRkitAlignedSegment>,
+    tree: Mutex<Lapper<usize, usize>>,
+    logger: Option<Py<PyAny>>,
+    // params:
+    skip_supp: bool,
+    skip_sec: bool,
+    max_locus_reads: usize,
+}
+
+#[pymethods]
+impl STRkitLocusBlockSegments {
+    fn get_segments_for_locus<'py>(
+        &mut self,
+        py: Python<'py>,
+        locus: Bound<'_, STRkitLocus>,
+    ) -> PyResult<(
+        Bound<'py, PyArray1<PyObject>>,
+        usize,
+        Bound<'py, PyArray1<usize>>,
+        HashMap<String, u8>,
+        i64,
+        i64,
+    )> {
+        let tree = self.tree.lock().unwrap();
+        let loc = locus.borrow();
+
+        let mut left_most_coord = 999999999999i64;
+        let mut right_most_coord = 0i64;
+
+        let mut segments: Vec<Py<STRkitAlignedSegment>> = Vec::new();
+        let mut read_lengths: Vec<usize> = Vec::new();
+        let mut chimeric_read_status: HashMap<String, u8> = HashMap::new();
+        let mut seen_reads: HashSet<String> = HashSet::new();
+
+        // Fetch every segment (interval from the tree) which OVERLAPS [locus left flank coord, locus right flank coord]
+        for i in tree.find(loc.left_flank_coord as usize, loc.right_flank_coord as usize) {
+            let seg = &self.segments[i.val];
+
+            // If we have two overlapping alignments for the same read, we have a chimeric read within the TR locus
+            // (so probably a large expansion...)
+            let crs: &mut u8 = chimeric_read_status.entry(seg.name.clone()).or_insert(0u8);
+            *crs |= if seg.is_supplementary { 2u8 } else { 1u8 };
+
+            if self.skip_supp && seg.is_supplementary {  // If configured, skip supplementary alignments
+                if let Some(logger) = &self.logger {
+                    // Keep debug log level check in Rust to avoid needless Python call
+                    logger.call_method1(
+                        py,
+                        intern!(py, "debug"),
+                        (
+                            intern!(py, "%s - skipping entry for read %s (supplementary)"),
+                            locus.borrow().log_str(),
+                            &seg.name,
+                        ),
+                    )?;
+                }
+                continue;
+            }
+
+            if self.skip_sec && seg.is_secondary {  // If configured, skip secondary alignments
+                if let Some(logger) = &self.logger {
+                    // Keep debug log level check in Rust to avoid needless Python call
+                    logger.call_method1(
+                        py,
+                        intern!(py, "debug"),
+                        (
+                            intern!(py, "%s - skipping entry for read %s (secondary)"),
+                            locus.borrow().log_str(),
+                            &seg.name,
+                        ),
+                    )?;
+                }
+                continue;
+            }
+
+            // Copy them into a new vector (--> array) with associated data, replacing the read-level fetches we used to do.
+            segments.push(Py::new(py, seg.clone())?);
+            read_lengths.push(seg.length);
+            seen_reads.insert(seg.name.clone());
+
+            left_most_coord = cmp::min(left_most_coord, seg.start);
+            right_most_coord = cmp::max(right_most_coord, seg.end);
+
+            if seen_reads.len() > self.max_locus_reads {
+                // We specifically break when we're over the maximum so that Python can also see we're over
+                // the threshold and log something.
+                break;
+            }
+        }
+
+        let n_segments = segments.len();
+
+        Ok((
+            PyArray::from_owned_object_array(py, Array1::from_vec(segments)),
+            n_segments,
+            read_lengths.to_pyarray(py),
+            chimeric_read_status,
+            left_most_coord,
+            right_most_coord,
+        ))
+    }
+}
+
+
+#[pyclass]
 pub struct STRkitBAMReader {
     reader: Mutex<IndexedReader>,
-    max_reads: usize,
+    max_locus_reads: usize,
     skip_supp: bool,
     skip_sec: bool,
     use_hp: bool,
@@ -85,7 +203,7 @@ impl STRkitBAMReader {
         py: Python<'_>,
         path: &str,
         ref_path: &str,
-        max_reads: usize,
+        max_locus_reads: usize,
         skip_supp: bool,
         skip_sec: bool,
         use_hp: bool,
@@ -99,7 +217,7 @@ impl STRkitBAMReader {
             Ok(
                 STRkitBAMReader {
                     reader: Mutex::new(reader),
-                    max_reads,
+                    max_locus_reads,
                     skip_supp,
                     skip_sec,
                     use_hp,
@@ -119,14 +237,14 @@ impl STRkitBAMReader {
         names.into_iter().map(|n| String::from_utf8_lossy(n).to_string()).collect()
     }
 
-    fn get_overlapping_segments_and_related_data<'py>(
+    fn get_overlapping_segments_and_related_data_for_block<'py>(
         &mut self,
         py: Python<'py>,
         contig: &str,
         left_coord: i64,
         right_coord: i64,
-        locus_log_str: &str,
-    ) -> PyResult<(Bound<'py, PyArray1<PyObject>>, usize, Bound<'py, PyArray1<usize>>, HashMap<String, u8>, i64, i64)> {
+        log_str: &str,
+    ) -> PyResult<Py<STRkitLocusBlockSegments>> {
         let mut reader = self.reader.lock().unwrap();
 
         reader.fetch((contig, left_coord, right_coord)).unwrap();
@@ -134,9 +252,8 @@ impl STRkitBAMReader {
         let mut left_most_coord = 999999999999i64;
         let mut right_most_coord = 0i64;
 
-        let mut segments: Vec<Py<STRkitAlignedSegment>> = Vec::new();
-        let mut read_lengths: Vec<usize> = Vec::new();
-        let mut chimeric_read_status: HashMap<String, u8> = HashMap::new();
+        let mut segments: Vec<STRkitAlignedSegment> = Vec::new();
+        let mut intervals: Vec<Interval<usize, usize>> = Vec::new();
         let mut seen_reads: HashSet<String> = HashSet::new();
 
         let mut record = Record::new();
@@ -145,43 +262,15 @@ impl STRkitBAMReader {
             match r {
                 Ok(_) => {
                     let name = String::from_utf8_lossy(record.qname()).to_string();
-
                     let supp = record.is_supplementary();
-
-                    // If we have two overlapping alignments for the same read, we have a chimeric read within the TR
-                    // (so probably a large expansion...)
-
-                    let crs = chimeric_read_status.entry(name.clone()).or_insert(0u8);
-                    *crs |= if supp { 2u8 } else { 1u8 };
-
-                    if self.skip_supp && supp {  // If configured, skip supplementary alignments
-                        if self.debug_logs {  // Keep debug log level check in Rust to avoid needless Python call
-                            self.logger.call_method1(
-                                py,
-                                intern!(py, "debug"),
-                                (intern!(py, "%s - skipping entry for read %s (supplementary)"), locus_log_str, name),
-                            )?;
-                        }
-                        continue;
-                    }
-
-                    if self.skip_sec && record.is_secondary() {  // If configured, skip secondary alignments
-                        if self.debug_logs {  // Keep debug log level check in Rust to avoid needless Python call
-                            self.logger.call_method1(
-                                py,
-                                intern!(py, "debug"),
-                                (intern!(py, "%s - skipping entry for read %s (secondary)"), locus_log_str, name),
-                            )?;
-                        }
-                        continue;
-                    }
+                    let sec = record.is_secondary();
 
                     if seen_reads.contains(&name) {  // Skip already-seen reads
                         if self.debug_logs {  // Keep debug log level check in Rust to avoid needless Python call
                             self.logger.call_method1(
                                 py,
                                 intern!(py, "debug"),
-                                (intern!(py, "%s - skipping entry for read %s (already seen)"), locus_log_str, name),
+                                (intern!(py, "%s - skipping entry for read %s (already seen)"), log_str, name),
                             )?;
                         }
                         continue;
@@ -206,6 +295,8 @@ impl STRkitBAMReader {
                         start,
                         end,
                         is_reverse,
+                        is_supplementary: supp,
+                        is_secondary: sec,
                         query_sequence,
                         _query_qualities: Array1::from_vec(record.qual().to_vec()),
                         _raw_cigar: Array1::from_vec(record.raw_cigar().to_vec()),
@@ -216,30 +307,26 @@ impl STRkitBAMReader {
                     let nc = aligned_segment.name.clone();
                     seen_reads.insert(nc);
 
-                    segments.push(Py::new(py, aligned_segment)?);
-                    read_lengths.push(length);
+                    segments.push(aligned_segment);
+                    intervals.push(Interval { start: start as usize, stop: end as usize, val: segments.len() - 1 });
 
                     left_most_coord = cmp::min(left_most_coord, start);
                     right_most_coord = cmp::max(right_most_coord, end);
-
-                    if seen_reads.len() > self.max_reads {
-                        break;
-                    }
-                }
+                },
                 Err(_) => panic!("Error reading alignment record"),
             }
         }
 
-        let n_segments = segments.len();
-        let segments_array = Array1::from_vec(segments);
-
-        Ok((
-            PyArray::from_owned_object_array(py, segments_array),
-            n_segments,
-            read_lengths.to_pyarray(py),
-            chimeric_read_status,
+        Py::new(py, STRkitLocusBlockSegments {
             left_most_coord,
             right_most_coord,
-        ))
+            segments,
+            tree: Mutex::new(Lapper::new(intervals)),
+            logger: self.debug_logs.then(|| self.logger.clone_ref(py)),
+            // params:
+            skip_supp: self.skip_supp,
+            skip_sec: self.skip_sec,
+            max_locus_reads: self.max_locus_reads,
+        })
     }
 }
