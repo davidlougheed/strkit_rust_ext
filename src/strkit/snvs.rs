@@ -469,12 +469,12 @@ pub fn calculate_useful_snvs(
         let segment_end = read_dict_extra_for_read.get_item(intern!(py, "_ref_end"))?
             .unwrap().extract::<usize>()?;
 
-        let mut snv_list: Vec<(char, u8)> = Vec::new();
         let mut last_pair_idx: usize = 0;
-
-        for &snv_pos in sorted_snvs.iter() {
+        let acb = &aligned_coords.borrow();
+        let snv_list: Vec<(char, u8)> = sorted_snvs.iter().map(|&snv_pos| {
             let mut base: char = SNV_OUT_OF_RANGE_CHAR;
             let mut qual: u8 = 0;
+
             if segment_start <= snv_pos && snv_pos <= segment_end {
                 if let Some(&bb) = snvs.get(&snv_pos) {
                     base = bb.0;
@@ -482,18 +482,19 @@ pub fn calculate_useful_snvs(
                 } else {
                     // Binary search for base from correct pair
                     //  - We go in order, so we don't have to search left of the last pair index we tried.
-                    let (sb, idx, found) = find_base_at_pos(qs, &aligned_coords.borrow(), snv_pos, last_pair_idx);
+                    let (sb, idx, found) = find_base_at_pos(qs, acb, snv_pos, last_pair_idx);
                     base = sb;
                     // 0 === indeterminate quality for out-of-range/gaps:
                     qual = if found { fqqs[idx] } else { 0 };
+
+                    //  - Side effect: mutate last_pair_idx
                     last_pair_idx = idx;
                 }
             }
 
-            // Otherwise, leave as out-of-range
+            // Otherwise, leave as out-of-range (used immediately below)
 
-            snv_list.push((base, qual));
-
+            //  - Side effect: mutate snv_counters[snv_pos]
             if base != SNV_OUT_OF_RANGE_CHAR && base != SNV_GAP_CHAR && qual >= 20 {
                 // Only count SNV bases where we've actually found the base for the read and it's of a high enough
                 // quality to consider.
@@ -501,7 +502,9 @@ pub fn calculate_useful_snvs(
                 let count = counter.entry(base).or_insert_with(|| 0);
                 *count += 1;
             }
-        }
+
+            (base, qual)
+        }).collect();
 
         // TODO: set snv_bases as tuple
         read_dict_extra_for_read.set_item(intern!(py, "snv_bases"), snv_list)?;

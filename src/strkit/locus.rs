@@ -339,6 +339,8 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         entropy_threshold: 1.8,
     };
 
+    let candidate_snvs_b = candidate_snvs.borrow();
+
     for rn in read_dict_extra.keys().into_iter().map(|x| x.downcast_into::<PyString>().unwrap()) {
         let read_dict_extra_for_read = read_dict_extra.get_item(&rn).unwrap().unwrap().downcast_into::<PyDict>().unwrap();
 
@@ -362,7 +364,6 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
                 .get_item(&rn)?
                 .unwrap()
                 .downcast_into::<STRkitAlignedCoords>()?
-                // .downcast_into::<Py<STRkitAlignedCoords>>()?
                 .borrow();
         let coords_len = aligned_coords.query_coords.len();
 
@@ -400,15 +401,10 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             &useful_snvs_params,
         );
 
-        for &p in snvs.keys() {
-            if !only_known_snvs || candidate_snvs.borrow().snvs.contains_key(&p) {
-                locus_snvs.insert(p);
-            }
-        }
-
-        let rn_str = rn.to_string();
-
-        read_snvs.insert(rn_str, snvs);
+        // Add all locus SNVs that are known candidates (if required)
+        locus_snvs.extend(snvs.keys().filter(|p| !only_known_snvs || candidate_snvs_b.snvs.contains_key(p)));
+        // Add read SNVs
+        read_snvs.insert(rn.to_string(), snvs);
     }
 
     // --------------------------------------------------------------------------------------------
