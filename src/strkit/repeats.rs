@@ -66,6 +66,7 @@ pub fn get_repeat_count(
     max_iters: usize,
     local_search_range: i32,
     step_size: i32,
+    use_shortcuts: bool,
 ) -> ((i32, i32), usize, i32) {
     /* Returns:
      *  - tuple of (best repeat size, best score)
@@ -84,6 +85,7 @@ pub fn get_repeat_count(
     let start_perfect_diff_from_tr_len = (start_length - (tr_seq.len() as i32)).abs();
 
     if start_perfect_diff_from_tr_len <= { if motif.len() > 2 { 1 } else { 0 } } {
+        // This is such an obvious/"always-good" shortcut that we don't bother putting it behind a flag.
         let rep = motif.repeat(start_count as usize);
         if tr_seq.contains(&rep) {
             return (
@@ -91,7 +93,7 @@ pub fn get_repeat_count(
                 1,
                 0,
             );
-        } else {
+        } else if use_shortcuts {
             let ld = levenshtein(tr_seq, &rep);
             if ld < motif.len() / 2 {
                 // Shortcut: if we're less than a half-motif's worth of substitutions+indels, skip the whole mess
@@ -130,7 +132,7 @@ pub fn get_repeat_count(
         max_score - (cmp::max(MISMATCH_SCORE.abs(), INDEL_PENALTY) as usize)
     };
 
-    if start_score as usize >= early_return_threshold {
+    if use_shortcuts && start_score as usize >= early_return_threshold {
         return ((start_count, start_score), 1, 0);
     }
 
@@ -201,7 +203,7 @@ pub fn get_repeat_count(
                 best_score = best_score_this_round;
 
                 // If we're close to perfect (less than one substitution/indel away), early-escape:
-                if best_score as usize >= early_return_threshold {
+                if use_shortcuts && best_score as usize >= early_return_threshold {
                     return ((best_size, best_score), n_explored, best_size - start_count);
                 }
 

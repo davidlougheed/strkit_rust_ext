@@ -193,6 +193,7 @@ def get_repeat_count(
     max_iters: int,
     local_search_range: int,
     step_size: int,
+    use_shortcuts: bool,
 ) -> tuple[tuple[int, int], int, int]: ...
 
 # utils
