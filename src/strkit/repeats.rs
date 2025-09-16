@@ -144,11 +144,11 @@ pub fn get_repeat_count(
     let mut lsr = local_search_range;
     let mut step = step_size;
 
-    if rel_score_diff < 0.05 || score_diff <= 10 || tr_seq.len() <= motif.len() * 10 {  // TODO: parametrize
+    if rel_score_diff < 0.05 || (use_shortcuts && (score_diff <= 10 || tr_seq.len() <= motif.len() * 10)) {  // TODO: parametrize
         // If we're very close to the maximum, explore less.
         lsr = 1;
         step = 1;
-    } else if (rel_score_diff < 0.1 || score_diff <= 15 || tr_seq.len() <= motif.len() * 20) && lsr > 2 {
+    } else if (rel_score_diff < 0.1 || (use_shortcuts && (score_diff <= 15 || tr_seq.len() <= motif.len() * 20))) && lsr > 2 {
         lsr = 2;
         step = 1;
     }
@@ -210,7 +210,7 @@ pub fn get_repeat_count(
                 score_diff = (best_score - max_init_score).abs();
                 rel_score_diff = score_diff as f64 / max_init_score as f64;
 
-                if lsr > 1 && (rel_score_diff < 0.05 || score_diff <= 10) {
+                if lsr > 1 && (rel_score_diff < 0.05 || (use_shortcuts && score_diff <= 10)) {
                     // reduce search range as we approach an optimum
                     lsr = 1;
                 }
