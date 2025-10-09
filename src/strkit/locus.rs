@@ -19,6 +19,8 @@ use super::snvs::UsefulSNVsParams;
 pub struct STRkitLocus {
     #[pyo3(get)]
     pub t_idx: usize,
+    #[pyo3(get)]
+    pub locus_id: String,
 
     #[pyo3(get)]
     pub contig: String,
@@ -51,6 +53,7 @@ impl STRkitLocus {
     #[new]
     fn py_new(
         t_idx: usize,
+        locus_id: &str,
         contig: &str,
         left_coord: i32,
         right_coord: i32,
@@ -58,11 +61,14 @@ impl STRkitLocus {
         n_alleles: usize,
         flank_size: i32,
     ) -> PyResult<Self> {
-        let log_str = format!("locus {}: {}:{}-{} [{}]", t_idx, contig, left_coord, right_coord, motif);
+        let log_str = format!(
+            "locus {} (id={}): {}:{}-{} [{}]", t_idx, locus_id, contig, left_coord, right_coord, motif
+        );
 
         Ok(
             STRkitLocus {
                 t_idx,
+                locus_id: locus_id.to_string(),
 
                 contig: contig.to_string(),
 
@@ -88,6 +94,7 @@ impl STRkitLocus {
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let res = PyDict::new(py);
         res.set_item("locus_index", self.t_idx).unwrap();
+        res.set_item("locus_id", self.locus_id.clone()).unwrap();
         res.set_item("contig", self.contig.clone()).unwrap();
         res.set_item("start", self.left_coord).unwrap();
         res.set_item("end", self.right_coord).unwrap();
@@ -133,9 +140,10 @@ impl STRkitLocus {
         Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 
-    pub fn __getnewargs__(&self) -> PyResult<(usize, String, i32, i32, String, usize, i32)> {
+    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, i32, i32, String, usize, i32)> {
         Ok((
             self.t_idx,
+            self.locus_id.clone(),
             self.contig.clone(),
             self.left_coord,
             self.right_coord,

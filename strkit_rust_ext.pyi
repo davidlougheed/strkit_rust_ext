@@ -22,6 +22,7 @@ def consensus_seq(seqs: Sequence[str], logger: Logger, max_mdn_poa_length: int) 
 
 class STRkitLocus:
     t_idx: int
+    locus_id: str
 
     contig: str
 
