@@ -14,8 +14,8 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -38,7 +38,7 @@ jobs:
       matrix:
         target: [x86_64, aarch64, armv7]  # x86 disabled for now
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build wheels
         uses: PyO3/maturin-action@v1.45.0
         with:
@@ -100,7 +100,7 @@ jobs:
   #     matrix:
   #       target: [x86_64-pc-windows-gnu]
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v5
   #     # - name: Install OpenSSL (Windows)
   #     #   shell: powershell
   #     #   run: |
@@ -130,7 +130,7 @@ jobs:
   #         - { sys: ucrt64,  env: ucrt-x86_64 }
 
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v5
   #     - name: Set up MSYS2 MinGW-W64
   #       uses: msys2/setup-msys2@v2
   #       with:
@@ -185,7 +185,7 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -202,7 +202,7 @@ jobs:
   sdist:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
