@@ -1,6 +1,6 @@
 [package]
 name = "strkit_rust_ext"
-version = "0.23.2"
+version = "0.24.0"
 edition = "2024"
 rust-version = "1.85.0"
 
@@ -11,12 +11,12 @@ crate-type = ["cdylib"]
 
 [dependencies]
 bio = "=2.2.0"
-numpy = "0.25"
+numpy = "0.26"
 # extension-module is needed:
 #   https://pyo3.rs/v0.25.0/building-and-distribution#the-extension-module-feature
 # generate-import-lib allows cross-compilation for Windows:
 #   https://www.maturin.rs/distribution.html#cross-compile-to-windows
-pyo3 = { version = "0.25.1", features = ["extension-module", "generate-import-lib"] }
+pyo3 = { version = "0.26.0", features = ["extension-module", "generate-import-lib"] }
 bincode = { version = "2", features = ["serde"] }
 bytecount = { version = "0.6.8", features = ["runtime-dispatch-simd"] }
 # exclude curl from rust-htslib by turning off default features and putting back bzip2 + lzma for CRAMs
