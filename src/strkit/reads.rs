@@ -97,7 +97,7 @@ impl STRkitLocusBlockSegments {
         py: Python<'py>,
         locus: Bound<'_, STRkitLocus>,
     ) -> PyResult<(
-        Bound<'py, PyArray1<PyObject>>,
+        Bound<'py, PyArray1<Py<PyAny>>>,
         usize,
         Bound<'py, PyArray1<usize>>,
         HashMap<String, u8>,
