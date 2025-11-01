@@ -1357,7 +1357,7 @@ dependencies = [
 
 [[package]]
 name = "strkit_rust_ext"
-version = "0.24.0"
+version = "0.24.1"
 dependencies = [
  "bincode",
  "bio",
