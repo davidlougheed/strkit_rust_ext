@@ -157,6 +157,7 @@ impl STRkitLocus {
 #[derive(Clone)]
 #[pyclass(frozen)]
 pub struct STRkitLocusWithRefData {
+    #[pyo3(get)]
     pub locus_def: STRkitLocus,
 
     #[pyo3(get)]
