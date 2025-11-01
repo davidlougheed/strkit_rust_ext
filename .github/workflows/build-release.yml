@@ -75,14 +75,14 @@ jobs:
             # https://github.com/rust-lang/rust-bindgen/issues/1229
             # https://docs.rs/cc/latest/cc/#external-configuration-via-environment-variables
 
-            echo "arch details $TARGET_CC $TARGET_AR $TARGET_CXX $TARGET_SYSROOT ${CFLAGS:-} ${CXXFLAGS:-} ${RUSTFLAGS:-} ${BINDGEN_EXTRA_CLANG_ARGS:-}"
+            echo "arch details ${TARGET_CC:-} ${TARGET_AR:-} ${TARGET_CXX:-} ${TARGET_SYSROOT:-} ${CFLAGS:-} ${CXXFLAGS:-} ${RUSTFLAGS:-} ${BINDGEN_EXTRA_CLANG_ARGS:-}"
 
             printenv
 
             # Required to make Parasail build
             export CMAKE_POLICY_VERSION_MINIMUM="3.5"
 
-            if [[ ! -z "$TARGET_CC" ]]; then
+            if [[ ! -z "${TARGET_CC+x}" ]]; then
               export CC="$TARGET_CC"
               export AR="$TARGET_AR"
               export CXX="$TARGET_CXX"
