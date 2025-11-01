@@ -60,4 +60,5 @@ def test_locus_with_ref_data_construction():
     assert lwrd.ref_total_seq == lfs + ref_cags + rfs
     assert lwrd.ref_time == 0.1
 
+    assert lwrd.locus_def.left_flank_coord == 10000 - 70
     _assert_locus0_props_methods(lwrd.locus_def)
