@@ -63,7 +63,7 @@ jobs:
                 python3 -m ensurepip
             else
                 # If we're running on debian-based system.
-                apt update -y && apt-get install -y gcc-multilib libssl-dev openssl pkg-config libclang-dev python3-pip
+                apt-get update -y && apt-get install -y gcc-multilib libssl-dev openssl pkg-config libclang-dev python3-pip
             fi
 
             # https://github.com/rust-cross/manylinux-cross/issues/40
