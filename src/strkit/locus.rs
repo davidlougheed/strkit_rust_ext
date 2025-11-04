@@ -131,12 +131,16 @@ impl STRkitLocus {
         )
     }
 
+    // --- below are functions which make this class pickle-able ---
+
     pub fn __setstate__(&mut self, state: Bound<'_, PyBytes>) -> PyResult<()> {
+        // TODO: replace unwrap with actual PyResult error
         (*self, _) = bincode::serde::decode_from_slice(state.as_bytes(), bincode::config::standard()).unwrap();
         Ok(())
     }
 
     pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        // TODO: replace unwrap with actual PyResult error
         Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 
