@@ -192,6 +192,8 @@ pub struct STRkitBAMReader {
     skip_supp: bool,
     skip_sec: bool,
     use_hp: bool,
+    contig_names: Vec<String>,
+    any_contig_name_has_chr: bool,
     logger: Py<PyAny>,
     debug_logs: bool,
 }
@@ -212,15 +214,27 @@ impl STRkitBAMReader {
     ) -> PyResult<Self> {
         let r = IndexedReader::from_path(path);
 
-        if let Ok(mut reader) = r {
-            reader.set_reference(ref_path).unwrap();
+        if let Ok(mut rdr) = r {
+            rdr.set_reference(ref_path).unwrap();
+
+            let contig_names: Vec<String> = {
+                let names = rdr.header().target_names();
+                names.into_iter().map(|n| String::from_utf8_lossy(n).to_string()).collect()
+            };
+
+            let any_contig_name_has_chr = contig_names.iter().any(|c| starts_with_chr(c));
+
+            let reader = Mutex::new(rdr);
+
             Ok(
                 STRkitBAMReader {
-                    reader: Mutex::new(reader),
+                    reader,
                     max_locus_reads,
                     skip_supp,
                     skip_sec,
                     use_hp,
+                    contig_names,
+                    any_contig_name_has_chr,
                     logger: logger.unbind().clone_ref(py),
                     debug_logs,
                 }
@@ -230,24 +244,15 @@ impl STRkitBAMReader {
         }
     }
 
-    #[getter]
-    fn references(&self) -> Vec<String> {
-        let reader = self.reader.lock().unwrap();
-        let names = reader.header().target_names();
-        names.into_iter().map(|n| String::from_utf8_lossy(n).to_string()).collect()
-    }
-
     fn get_overlapping_segments_and_related_data_for_block<'py>(
         &mut self,
         py: Python<'py>,
-        contig: &str,
-        left_coord: i64,
-        right_coord: i64,
-        log_str: &str,
+        locus_block: &STRkitLocusBlock,
     ) -> PyResult<Py<STRkitLocusBlockSegments>> {
         let mut reader = self.reader.lock().unwrap();
 
-        reader.fetch((contig, left_coord, right_coord)).unwrap();
+        let contig_norm = normalize_contig(&locus_block.loci[0].contig, self.any_contig_name_has_chr); // TODO: hash map
+        reader.fetch((&contig_norm, locus_block.left, locus_block.right)).unwrap();
 
         let mut left_most_coord = 999999999999i64;
         let mut right_most_coord = 0i64;
@@ -270,7 +275,11 @@ impl STRkitBAMReader {
                             self.logger.call_method1(
                                 py,
                                 intern!(py, "debug"),
-                                (intern!(py, "%s - skipping entry for read %s (already seen)"), log_str, name),
+                                (
+                                    intern!(py, "%s - skipping entry for read %s (already seen)"),
+                                    &locus_block.log_str,
+                                    name,
+                                ),
                             )?;
                         }
                         continue;

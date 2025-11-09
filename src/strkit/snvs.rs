@@ -5,6 +5,7 @@ use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedStr;
 use pyo3::types::{PyBytes, PyDict, PyString};
+use regex::Regex;
 use rust_htslib::bcf;
 use rust_htslib::bcf::Read;
 use std::cmp;
@@ -12,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use crate::aligned_coords::STRkitAlignedCoords;
+use crate::locus::STRkitLocusBlock;
 use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 static SNV_OUT_OF_RANGE_CHAR: char = '-';
@@ -27,10 +29,13 @@ pub struct UsefulSNVsParams {
 }
 
 
+#[derive(Clone)] // TODO: rust: zero-copy when possible
+#[pyclass(frozen)]
 pub struct CandidateSNV {
     id: String,
     ref_base: char,
     alts: Vec<char>,
+    // This struct must be built with STRkitVCFReader.get_candidate_snvs(...) via CandidateSNVs
 }
 
 #[pyclass]
@@ -52,7 +57,7 @@ impl CandidateSNVs {
 }
 
 
-fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: &[&'x PyBackedStr]) -> Option<&'x PyBackedStr> {
+fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: &'x Vec<String>) -> Option<&'x str> {
     let mut c = contig;
     c = c.strip_prefix("chr").unwrap_or(c);
     match c {
@@ -65,9 +70,9 @@ fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: &[&'x PyB
     let nc_fmt: String = format!("NC_{:06}", c);
     c = nc_fmt.as_str();
 
-    let mut ret: Option<&PyBackedStr> = None;
+    let mut ret: Option<&str> = None;
 
-    snv_vcf_contigs.iter().for_each(|&vcf_contig| {
+    snv_vcf_contigs.iter().for_each(|vcf_contig| {
         if vcf_contig.starts_with(c) {
             ret = Some(vcf_contig);  // ret = vcf_contig;  // .to_string();
         }
@@ -76,10 +81,34 @@ fn _human_chrom_to_refseq_accession<'x>(contig: &str, snv_vcf_contigs: &[&'x PyB
     ret
 }
 
+enum VCFContigFormat {
+    Chr, // UCSC style (chr1, chr2, ...)
+    Num, // Numeral contig pattern (1, 2, ..., X, Y, M)
+    Acc, // Accession pattern (NC_)
+    Unk, // Unknown
+}
+
+const NUMERAL_CONTIG_PATTERN: &str = r"^(\d{1,2}|X|Y)$";
+const ACCESSION_PATTERN: &str = r"^NC_\d+";
+
+fn _get_vcf_contig_format(snv_vcf_contigs: &Vec<String>) -> VCFContigFormat {
+    if snv_vcf_contigs.is_empty() || snv_vcf_contigs[0].starts_with("chr") {
+        VCFContigFormat::Chr
+    } else if Regex::new(NUMERAL_CONTIG_PATTERN).unwrap().is_match(&snv_vcf_contigs[0]) {
+        VCFContigFormat::Num
+    } else if Regex::new(ACCESSION_PATTERN).unwrap().is_match(&snv_vcf_contigs[0]) {
+        VCFContigFormat::Acc
+    } else {
+        VCFContigFormat::Unk
+    }
+}
+
 
 #[pyclass]
 pub struct STRkitVCFReader {
     reader: Mutex<bcf::IndexedReader>,
+    contig_names: Vec<String>,
+    contig_format: VCFContigFormat,
 }
 
 #[pymethods]
@@ -88,8 +117,26 @@ impl STRkitVCFReader {
     fn py_new(path: &str) -> PyResult<Self> {
         let r = bcf::IndexedReader::from_path(path);
 
-        if let Ok(reader) = r {
-            Ok(STRkitVCFReader { reader: Mutex::new(reader) })
+        if let Ok(rdr) = r {
+            // fetch SNV VCF contigs
+            let header = rdr.header();
+            let contig_names: Vec<String> = header.header_records().into_iter().filter_map(|h: bcf::HeaderRecord| {
+                match h {
+                    bcf::HeaderRecord::Contig { key: _, values } => {
+                        if let Some(id) = values.get("ID") {
+                            Some(id.clone())
+                        } else {
+                            None
+                        }
+                    },
+                    _ => None
+                }
+            }).collect();
+
+            let contig_format = _get_vcf_contig_format(&contig_names);
+
+            let reader = Mutex::new(rdr);
+            Ok(STRkitVCFReader { reader, contig_names, contig_format })
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load VCF from path: {}", path)))
         }
@@ -98,11 +145,7 @@ impl STRkitVCFReader {
     fn get_candidate_snvs<'py>(
         &mut self,
         py: Python<'py>,
-        snv_vcf_contigs: Vec<PyBackedStr>,
-        snv_vcf_file_format: &str,
-        contig: &str,
-        left_most_coord: u64,
-        right_most_coord: u64,
+        locus_block: &STRkitLocusBlock,
     ) -> PyResult<Bound<'py, CandidateSNVs>> {
         let mut reader = self.reader.lock().unwrap();
 
@@ -110,21 +153,20 @@ impl STRkitVCFReader {
 
         let mut candidate_snvs = HashMap::<usize, CandidateSNV>::new();
 
-        let svc: Vec<&PyBackedStr> = snv_vcf_contigs.iter().collect();
-
-        let mut snv_contig = contig;
-        if header.name2rid(snv_contig.as_bytes()).is_err() {
-            if snv_vcf_file_format == "num" {
-                snv_contig = snv_contig.strip_prefix("chr").unwrap_or(snv_contig);
-            } else if snv_vcf_file_format == "acc" {
-                snv_contig = _human_chrom_to_refseq_accession(snv_contig, &svc).unwrap();
+        let lb_contig: &str = &locus_block.loci[0].contig;
+        let snv_contig: &str = if header.name2rid(lb_contig.as_bytes()).is_err() {
+            match self.contig_format {
+                VCFContigFormat::Num => lb_contig.strip_prefix("chr").unwrap_or(lb_contig),
+                VCFContigFormat::Acc => _human_chrom_to_refseq_accession(lb_contig, &self.contig_names).unwrap(),
+                _ => lb_contig, // Otherwise, leave as-is (will cause a panic below with name2rid)
             }
-            // Otherwise, leave as-is
-        }
+        } else {
+            lb_contig // Exists, leave as-is
+        };
 
         let contig_rid = header.name2rid(snv_contig.as_bytes())
-            .unwrap_or_else(|_| panic!("Could not find contig in VCF: {}", contig));
-        reader.fetch(contig_rid, left_most_coord, Some(right_most_coord + 1)).unwrap();
+            .unwrap_or_else(|_| panic!("Could not find contig in VCF: {}", lb_contig));
+        reader.fetch(contig_rid, locus_block.left, Some(locus_block.right + 1)).unwrap();
 
         let mut record = reader.empty_record();
 

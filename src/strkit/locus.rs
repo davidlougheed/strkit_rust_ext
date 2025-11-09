@@ -187,6 +187,77 @@ pub struct STRkitLocusWithRefData {
     // This struct must be built with the STRkitLocus.with_ref_data builder function above.
 }
 
+
+#[pyclass]
+pub struct STRkitLocusBlockIter {
+    inner: std::vec::IntoIter<STRkitLocus>,
+}
+
+#[pymethods]
+impl STRkitLocusBlockIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<STRkitLocus> {
+        slf.inner.next()
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[pyclass(module = "strkit_rust_ext")]
+pub struct STRkitLocusBlock {
+    pub loci: Vec<STRkitLocus>,
+    pub left: u64, // Left-most coordinate of all loci
+    pub right: u64, // Right-most coordinate of all loci
+    pub log_str: String,
+}
+
+#[pymethods]
+impl STRkitLocusBlock {
+    #[new]
+    fn py_new(loci: Vec<STRkitLocus>, left: u64, right: u64) -> PyResult<Self> {
+        let log_str = format!("[block {}:{}-{}]", loci[0].contig, left, right);
+        Ok(STRkitLocusBlock { loci, left, right, log_str })
+    }
+
+    #[getter]
+    fn contig(&self) -> String {
+        self.loci[0].contig.clone()
+    }
+
+    pub fn __len__(&self) -> usize {
+        self.loci.len()
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<STRkitLocusBlockIter>> {
+        let iter = STRkitLocusBlockIter { inner: slf.loci.clone().into_iter() };
+        Py::new(slf.py(), iter)
+    }
+
+    // --- below are functions which make this class pickle-able ---
+
+    pub fn __setstate__(&mut self, state: Bound<'_, PyBytes>) -> PyResult<()> {
+        // TODO: replace unwrap with actual PyResult error
+        (*self, _) = bincode::serde::decode_from_slice(state.as_bytes(), bincode::config::standard()).unwrap();
+        Ok(())
+    }
+
+    pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        // TODO: replace unwrap with actual PyResult error
+        Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
+    }
+
+    pub fn __getnewargs__(&self) -> PyResult<(Vec<STRkitLocus>, u64, u64)> {
+        Ok((
+            self.loci.clone(), // TODO: perf hack with None / empty vec?
+            self.left,
+            self.right,
+        ))
+    }
+}
+
+
 fn _get_read_coords_from_matched_pairs(
     locus_with_ref_data: &STRkitLocusWithRefData,
     query_seq: &str,

@@ -83,6 +83,14 @@ class STRkitLocusWithRefData:
     ref_time: float
 
 
+class STRkitLocusBlock:
+    contig: str
+
+    def __init__(self, loci: list[STRkitLocus], left: int, right: int): ...
+    def __len__(self) -> int: ...
+    def __iter__(self): ...
+
+
 def get_read_coords_from_matched_pairs(
     locus_with_ref_data: STRkitLocusWithRefData,
     query_seq: str,
@@ -123,14 +131,7 @@ class CandidateSNVs:
 class STRkitVCFReader:
     def __init__(self, path: str): ...
 
-    def get_candidate_snvs(
-        self,
-        snv_vcf_contigs: tuple[str, ...],
-        snv_vcf_file_format: Literal["chr", "num", "acc", ""],
-        contig: str,
-        left_most_coord: int,
-        right_most_coord: int,
-    ): ...
+    def get_candidate_snvs(self, locus_block: STRkitLocusBlock) -> CandidateSNVs: ...
 
 
 def shannon_entropy(
@@ -170,8 +171,6 @@ class STRkitLocusBlockSegments:
 
 
 class STRkitBAMReader:
-    references: list[str]
-
     def __init__(
         self,
         path: str,
@@ -186,10 +185,7 @@ class STRkitBAMReader:
 
     def get_overlapping_segments_and_related_data_for_block(
         self,
-        contig: str,
-        left_coord: int,
-        right_coord: int,
-        log_str: str,
+        locus_block: STRkitLocusBlock,
     ) -> STRkitLocusBlockSegments: ...
 
 
@@ -212,3 +208,5 @@ def get_repeat_count(
 def find_coord_idx_by_ref_pos(aligned_coords: STRkitAlignedCoords, target: int, start_left: int) -> tuple[int, bool]: ...
 
 def calculate_seq_with_wildcards(qs: str, quals: NDArray[numpy.uint8] | None, base_wildcard_threshold: int) -> str: ...
+
+def normalize_contig(contig: str, has_chr: bool) -> str: ...
