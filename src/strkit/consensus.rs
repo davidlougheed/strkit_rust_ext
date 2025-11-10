@@ -84,18 +84,17 @@ fn poa_consensus_seq(seqs: &[&str]) -> Option<String> {
         return None;
     }
 
+    let _seqs: Vec<&[u8]> = seqs.iter().map(|s| s.as_bytes()).collect();
+
+    let first_seq = _seqs[0];
+
+    if n_seqs == 1 {
+        return Some(first_seq.iter().map(|&b| b as char).collect::<String>());
+    }
+
+    let scoring = Scoring::new(-1, 0, |a: u8, b: u8| if a == b { 1i32 } else { -1i32 });
+
     panic::catch_unwind(|| {
-
-        let scoring = Scoring::new(-1, 0, |a: u8, b: u8| if a == b { 1i32 } else { -1i32 });
-
-        let _seqs: Vec<&[u8]> = seqs.iter().map(|s| s.as_bytes()).collect();
-
-        let first_seq = _seqs[0];
-
-        if n_seqs == 1 {
-            return Some(first_seq.iter().map(|&b| b as char).collect::<String>());
-        }
-
         let mut aligner = Aligner::new(scoring, first_seq);
 
         let mut max_len: usize = first_seq.len();
