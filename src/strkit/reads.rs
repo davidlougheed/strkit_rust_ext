@@ -75,6 +75,10 @@ impl STRkitAlignedSegment {
 }
 
 
+/// In STRkit, we extract read data for loci in blocks to minimize read file accesses (BAM/CRAM). This is a container
+/// struct for these aligned reads/segments for a block of loci, with an interval tree for quickly extracting reads
+/// overlapping a specific locus.
+/// This struct must be initialized by STRkitBAMReader.get_overlapping_segments_and_related_data_for_block(...)
 #[pyclass]
 pub struct STRkitLocusBlockSegments {
     #[pyo3(get)]

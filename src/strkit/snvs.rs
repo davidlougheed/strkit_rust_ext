@@ -217,6 +217,8 @@ fn _byte_entropy_f32(data: &[u8], data_len: f32, byte: u8) -> f32 {
     }
 }
 
+/// Calculates the Shannon entropy of a slice of bytes representing DNA bases. This slice should only consist of
+/// ATGCatgc in ASCII form and no other bytes.
 fn _shannon_entropy_dna(data: &[u8]) -> f32 {
     let data_len = data.len() as f32;
 
