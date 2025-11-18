@@ -37,6 +37,8 @@ class STRkitLocus:
 
     n_alleles: int
 
+    flank_size: int
+
     def __init__(
         self,
         t_idx: int,

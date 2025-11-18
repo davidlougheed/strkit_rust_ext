@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyString};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::strkit::cigar::get_aligned_pair_matches_rs;
@@ -14,7 +15,7 @@ use crate::strkit::utils::find_coord_idx_by_ref_pos;
 use super::snvs::UsefulSNVsParams;
 
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Hash, Serialize)]
 #[pyclass(module = "strkit_rust_ext")]
 pub struct STRkitLocus {
     #[pyo3(get)]
@@ -44,7 +45,9 @@ pub struct STRkitLocus {
     #[pyo3(get)]
     pub n_alleles: usize,
 
-    _flank_size: i32,
+    #[pyo3(get)]
+    pub flank_size: i32,
+
     _log_str: String,
 }
 
@@ -83,7 +86,8 @@ impl STRkitLocus {
 
                 n_alleles,
 
-                _flank_size: flank_size,
+                flank_size,
+
                 _log_str: log_str,
             }
         )
@@ -100,6 +104,34 @@ impl STRkitLocus {
         res.set_item("end", self.right_coord).unwrap();
         res.set_item("motif", self.motif.clone()).unwrap();
         Ok(res)
+    }
+
+    fn __hash__(&self) -> u64 {
+        // Implement hash by hand, as we cannot have a frozen PyO3 class here due to the pickling stuff.
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn __repr__(&self) -> String {
+        let repr = format!(
+            "<STRkitLocus t_idx={} locus_id={} contig={} left_coord={} left_flank_coord={} right_coord={} \
+            right_flank_coord={} ref_size={} motif={} motif_size={} n_alleles={} flank_size={} _log_str={}>",
+            &self.t_idx,
+            &self.locus_id,
+            &self.contig,
+            &self.left_coord,
+            &self.left_flank_coord,
+            &self.right_coord,
+            &self.right_flank_coord,
+            &self.ref_size,
+            &self.motif,
+            &self.motif_size,
+            &self.n_alleles,
+            &self.flank_size,
+            &self._log_str,
+        );
+        repr
     }
 
     fn with_ref_data(
@@ -153,7 +185,7 @@ impl STRkitLocus {
             self.right_coord,
             self.motif.clone(),
             self.n_alleles,
-            self._flank_size,
+            self.flank_size,
         ))
     }
 }

@@ -20,7 +20,8 @@ def _assert_locus0_props_methods(locus: STRkitLocus):
     assert locus.n_alleles == 2
 
     # test methods
-    assert locus.log_str() == "locus 1 (id=locus1): chr1:10000-12000 [CAG]"
+    log_str = "locus 1 (id=locus1): chr1:10000-12000 [CAG]"
+    assert locus.log_str() == log_str
     assert locus.to_dict() == {
         "locus_index": 1,
         "locus_id": "locus1",
@@ -29,10 +30,20 @@ def _assert_locus0_props_methods(locus: STRkitLocus):
         "end": 12000,
         "motif": "CAG",
     }
+    assert repr(locus) == (
+        f"<STRkitLocus t_idx=1 locus_id=locus1 contig=chr1 left_coord=10000 left_flank_coord=9930 right_coord=12000 "
+        f"right_flank_coord=12070 ref_size=2000 motif=CAG motif_size=3 n_alleles=2 flank_size=70 _log_str={log_str}>"
+    )
 
 
 def test_locus_construction():
     locus = STRkitLocus(*LOCUS0_ARGS)
+
+    # test we can hash locus
+    locus_hash = hash(locus)
+
+    # test we can get a repr of the locus - value will be validated in _assert_locus0_props_methods
+    locus_repr = repr(locus)
 
     # test properties and methods
     _assert_locus0_props_methods(locus)
@@ -41,6 +52,12 @@ def test_locus_construction():
     p = pickle.dumps(locus)
     locus_unpickled = pickle.loads(p)
     _assert_locus0_props_methods(locus_unpickled)
+
+    # test reprs are equal
+    assert repr(locus_unpickled) == locus_repr
+
+    # test hashes are equal
+    assert hash(locus_unpickled) == locus_hash
 
 
 def test_locus_with_ref_data_construction():
