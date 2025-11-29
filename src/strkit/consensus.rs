@@ -65,14 +65,13 @@ fn majority_consensus_from_msa(aligned_seqs: &[&[u8]], aligned_len: usize) -> St
         aligned_seqs.iter().for_each(|s| {
             counter[s[i] as usize] += 1;
         });
-        let mode_idx = counter
+
+        counter
             .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(cmp::Ordering::Equal))
             .map(|(idx, _)| idx)
-            .unwrap();
-
-        (mode_idx != 255 && mode_idx != GAP_CHAR_ORD).then_some(mode_idx as u8 as char)
+            .and_then(|mode_idx| (mode_idx != 255 && mode_idx != GAP_CHAR_ORD).then_some(mode_idx as u8 as char))
     }).collect::<String>()
 }
 

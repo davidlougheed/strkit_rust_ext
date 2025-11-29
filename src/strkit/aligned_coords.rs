@@ -20,8 +20,8 @@ impl STRkitAlignedCoords {
         // Initializing with Nones MUST only happen during unpickling - this is ugly, sorry (see __getnewargs__ below).
         Ok(
             STRkitAlignedCoords {
-                query_coords: if let Some(qc) = query_coords { qc.to_vec().unwrap() } else { Vec::new() },
-                ref_coords: if let Some(rc) = ref_coords { rc.to_vec().unwrap() } else { Vec::new() },
+                query_coords: if let Some(qc) = query_coords { qc.to_vec()? } else { Vec::new() },
+                ref_coords: if let Some(rc) = ref_coords { rc.to_vec()? } else { Vec::new() },
             }
         )
     }
