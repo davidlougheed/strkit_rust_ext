@@ -90,9 +90,11 @@ jobs:
             fi
       - name: Upload wheels
         uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
         with:
           name: wheels-linux-${{ matrix.target }}
           path: dist
+          retention-days: 1
 
   # windows:
   #   runs-on: ubuntu-24.04
@@ -195,9 +197,11 @@ jobs:
           # sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
         with:
           name: wheels-macos-${{ matrix.target }}
           path: dist
+          retention-days: 1
 
   sdist:
     runs-on: ubuntu-24.04
@@ -211,9 +215,11 @@ jobs:
           args: --out dist
       - name: Upload sdist
         uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
         with:
           name: wheels-sdist
           path: dist
+          retention-days: 1
 
   release:
     name: Release
