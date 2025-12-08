@@ -97,12 +97,12 @@ impl STRkitLocus {
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let res = PyDict::new(py);
-        res.set_item("locus_index", self.t_idx).unwrap();
-        res.set_item("locus_id", self.locus_id.clone()).unwrap();
-        res.set_item("contig", self.contig.clone()).unwrap();
-        res.set_item("start", self.left_coord).unwrap();
-        res.set_item("end", self.right_coord).unwrap();
-        res.set_item("motif", self.motif.clone()).unwrap();
+        res.set_item("locus_index", self.t_idx)?;
+        res.set_item("locus_id", self.locus_id.clone())?;
+        res.set_item("contig", self.contig.clone())?;
+        res.set_item("start", self.left_coord)?;
+        res.set_item("end", self.right_coord)?;
+        res.set_item("motif", self.motif.clone())?;
         Ok(res)
     }
 
@@ -458,10 +458,10 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     let candidate_snvs_b = candidate_snvs.borrow();
 
     for rn in read_dict_extra.keys().into_iter().map(|x| x.downcast_into::<PyString>().unwrap()) {
-        let read_dict_extra_for_read = read_dict_extra.get_item(&rn).unwrap().unwrap().downcast_into::<PyDict>().unwrap();
+        let read_dict_extra_for_read = read_dict_extra.get_item(&rn)?.unwrap().downcast_into::<PyDict>()?;
 
-        let scl = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_left")).unwrap().unwrap().extract::<usize>().unwrap();
-        let scr = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_right")).unwrap().unwrap().extract::<usize>().unwrap();
+        let scl = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_left"))?.unwrap().extract::<usize>()?;
+        let scr = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_right"))?.unwrap().extract::<usize>()?;
 
         if scl > 0 || scr > 0 {
             logger.call_method1(

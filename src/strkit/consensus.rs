@@ -48,13 +48,12 @@ fn best_representatives<'a>(seqs: &'a [&str]) -> HashSet<&'a str> {
     }).unwrap_or(HashSet::new())
 }
 
+/// Best representative of a set of sequences:
+/// Slightly different from a true consensus - returns the string with the minimum Levenshtein distance to all other
+/// strings for a particular allele. This roughly approximates a true consensus when |seqs| is large. If more than one
+/// best representative exist, the first one is returned. If |best| == |seqs| or |best| == 0, None is returned since
+/// there is effectively no true consensus.
 fn best_representative<'a>(seqs: &'a [&str]) -> Option<&'a str> {
-    /*
-    Slightly different from a true consensus - returns the string with the minimum Levenshtein distance to all other
-    strings for a particular allele. This roughly approximates a true consensus when |seqs| is large. If more than one
-    best representative exist, the first one is returned. If |best| == |seqs| or |best| == 0, None is returned since there
-    is effectively no true consensus.
-    */
     best_representatives(seqs).into_iter().next()
 }
 
@@ -122,32 +121,37 @@ fn poa_consensus_seq(seqs: &[&str]) -> Option<String> {
 }
 
 
-fn run_best_representatives<'py>(py: Python<'py>, seqs: &[&str], logger: Bound<'py, PyAny>) -> Option<(String, &'py Bound<'py, PyString>)> {
-    best_representative(seqs).map_or_else(|| {
-        logger
-            .call_method1(
+fn run_best_representatives<'py>(py: Python<'py>, seqs: &[&str], logger: Bound<'py, PyAny>) -> PyResult<Option<(String, &'py Bound<'py, PyString>)>> {
+    match best_representative(seqs) {
+        Some(best_rep) => Ok(Some((String::from(best_rep), intern!(py, "best_rep")))),
+        None => {
+            logger.call_method1(
                 intern!(py, "debug"),
                 (intern!(py, "Got no best representative from sequences"),),
-            )
-            .unwrap();
-        None
-    }, |best_rep| Some((String::from(best_rep), intern!(py, "best_rep"))))
+            )?;
+            Ok(None)
+        }
+    }
 }
 
 
 #[pyfunction]
-pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound<'py, PyAny>, max_mdn_poa_length: usize) -> Option<(String, &'py Bound<'py, PyString>)> {
+pub fn consensus_seq<'py>(
+    py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound<'py, PyAny>, max_mdn_poa_length: usize
+) -> PyResult<Option<(String, &'py Bound<'py, PyString>)>> {
     let mut n_seqs = seqs.len();
 
     if seqs.is_empty() {
-        return None;
+        return Ok(None);
     }
 
     let n_blanks = seqs.iter().filter(|&s| s == BLANK_STR).count();
 
     if n_blanks as f64 > (n_seqs as f64) / 2.0 {
         // blanks make up majority, so blank is the consensus
-        return Some((String::from(""), if n_blanks == n_seqs { intern!(py, "single") } else { intern!(py, "best_rep") }));
+        return Ok(
+            Some((String::from(""), if n_blanks == n_seqs { intern!(py, "single") } else { intern!(py, "best_rep") }))
+        );
     }
 
     // if blanks make up minority, filter them out for consensus
@@ -160,10 +164,10 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound
     match seqs_set.len() {
         // With 1 sequence in the set, return it as the single value (if no blanks also present), or the majority value
         // otherwise.
-        1 => Some((
+        1 => Ok(Some((
             seqs_no_blanks[0].to_string(),
             if n_blanks == 0 { intern!(py, "single") } else { intern!(py, "best_rep") },
-        )),
+        ))),
         // With 2 sequences, return the majority representative, using the first item in the sorted deduplicated
         // sequence vector as a tiebreaker.
         2 => {
@@ -171,7 +175,7 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound
             seqs_set_vec.sort_unstable();
             let i0_count = seqs_no_blanks.iter().filter(|&s| s == seqs_set_vec[0]).count();
             // Shortcut: if index 0 count < n_seqs / 2, usize cast is 1 (so we return index 1); otherwise return index 0.
-            Some((seqs_set_vec[(i0_count < n_seqs / 2) as usize].to_string(), intern!(py, "best_rep")))
+            Ok(Some((seqs_set_vec[(i0_count < n_seqs / 2) as usize].to_string(), intern!(py, "best_rep"))))
         },
         // Otherwise, return the POA alignment consensus or, if the sequences are too long to quickly run POA, or too
         // short to not crash the current version of rust-bio's POA function, the best representative strategy is used
@@ -190,13 +194,16 @@ pub fn consensus_seq<'py>(py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound
                 return run_best_representatives(py, &sv, logger);
             }
 
-            poa_consensus_seq(&sv).map_or_else(|| {
-                logger.call_method1(
-                    intern!(py, "error"),
-                    (intern!(py, "Got no POA consensus sequence from sequences %s; trying best representative strategy"), sv.clone()),
-                ).unwrap();
-                run_best_representatives(py, &sv, logger)
-            }, |poa_c| Some((poa_c, intern!(py, "poa"))))
+            match poa_consensus_seq(&sv) {
+                Some(poa_c) => Ok(Some((poa_c, intern!(py, "poa")))),
+                None => {
+                    logger.call_method1(
+                        intern!(py, "error"),
+                        (intern!(py, "Got no POA consensus sequence from sequences %s; trying best representative strategy"), sv.clone()),
+                    )?;
+                    run_best_representatives(py, &sv, logger)
+                }
+            }
         }
     }
 }
