@@ -38,7 +38,7 @@ pub struct CandidateSNV {
     // This struct must be built with STRkitVCFReader.get_candidate_snvs(...) via CandidateSNVs
 }
 
-#[pyclass]
+#[pyclass(frozen)]
 pub struct CandidateSNVs {
     pub snvs: HashMap<usize, CandidateSNV>,
 }
