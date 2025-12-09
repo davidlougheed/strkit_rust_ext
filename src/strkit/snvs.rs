@@ -14,7 +14,6 @@ use std::sync::Mutex;
 
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::locus::STRkitLocusBlock;
-use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 static SNV_OUT_OF_RANGE_CHAR: char = '-';
 static SNV_GAP_CHAR: char = '_';
@@ -452,7 +451,7 @@ fn find_base_at_pos(
     t: usize,
     start_left: usize,
 ) -> (char, usize, bool) {
-    let (idx, found) = find_coord_idx_by_ref_pos(&aligned_coords, t, start_left);
+    let (idx, found) = aligned_coords.find_coord_idx_by_ref_pos(t, start_left);
 
     if found {
         // Even if not in SNV set, it is not guaranteed to be a reference base, since

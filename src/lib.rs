@@ -38,7 +38,6 @@ fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<snvs::STRkitVCFReader>()?;
     m.add_function(wrap_pyfunction!(snvs::shannon_entropy, m)?)?;
 
-    m.add_function(wrap_pyfunction!(utils::find_coord_idx_by_ref_pos_py, m)?)?;
     m.add_function(wrap_pyfunction!(utils::calculate_seq_with_wildcards_py, m)?)?;
     m.add_function(wrap_pyfunction!(utils::normalize_contig_py, m)?)?;
 

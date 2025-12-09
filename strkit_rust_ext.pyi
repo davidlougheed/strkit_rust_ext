@@ -13,6 +13,8 @@ class STRkitAlignedCoords:
 
     def query_coord_at_idx(self, idx: int) -> int: ...
 
+    def find_coord_idx_by_ref_pos(self, target: int, start_left: int) -> tuple[int, bool]: ...
+
 
 # consensus
 
@@ -206,8 +208,6 @@ def get_repeat_count(
 ) -> tuple[tuple[int, int], int, int]: ...
 
 # utils
-
-def find_coord_idx_by_ref_pos(aligned_coords: STRkitAlignedCoords, target: int, start_left: int) -> tuple[int, bool]: ...
 
 def calculate_seq_with_wildcards(qs: str, quals: NDArray[numpy.uint8] | None, base_wildcard_threshold: int) -> str: ...
 

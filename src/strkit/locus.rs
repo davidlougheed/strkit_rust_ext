@@ -10,7 +10,6 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::strkit::cigar::get_aligned_pair_matches_rs;
 use crate::strkit::snvs::{CandidateSNVs, calculate_useful_snvs, get_read_snvs};
-use crate::strkit::utils::find_coord_idx_by_ref_pos;
 
 use super::snvs::UsefulSNVsParams;
 
@@ -299,8 +298,8 @@ fn _get_read_coords_from_matched_pairs(
 
     // Binary search for left flank start ------------------------------------------------------------------------------
 
-    let (mut lhs, found) = find_coord_idx_by_ref_pos(
-        &aligned_coords, locus_with_ref_data.locus_def.left_flank_coord as usize, 0
+    let (mut lhs, found) = aligned_coords.find_coord_idx_by_ref_pos(
+        locus_with_ref_data.locus_def.left_flank_coord as usize, 0
     );
 
     // lhs now contains the index for the closest starting coordinate to left_flank_coord
@@ -327,8 +326,7 @@ fn _get_read_coords_from_matched_pairs(
 
     let mut loop_start = lhs + 1;
 
-    let (lhs_end, lhs_end_found) = find_coord_idx_by_ref_pos(
-        &aligned_coords,
+    let (lhs_end, lhs_end_found) = aligned_coords.find_coord_idx_by_ref_pos(
         (locus_with_ref_data.left_coord_adj - 1) as usize,
         loop_start,
     );

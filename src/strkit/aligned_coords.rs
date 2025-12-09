@@ -30,6 +30,13 @@ impl STRkitAlignedCoords {
         self.query_coords[idx]
     }
 
+    pub fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
+        let t = target as u64;
+        let idx = start_left + self.ref_coords[start_left..].partition_point(|&x| x < t);
+        let found = idx < self.ref_coords.len() && self.ref_coords[idx] == t;
+        (idx, found)
+    }
+
     // --- below are functions which make this class pickle-able ---
 
     pub fn __setstate__(&mut self, state: Bound<'_, PyBytes>) -> PyResult<()> {
