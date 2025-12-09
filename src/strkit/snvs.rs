@@ -207,13 +207,12 @@ impl STRkitVCFReader {
 // through the filters.)
 
 fn _byte_entropy_f32(data: &[u8], data_len: f32, byte: u8) -> f32 {
-    let count = bytecount::count(data, byte) as f32;
-    if count == 0.0f32 {
-        0f32
-    } else {
-        let p: f32 = (count as f32) / data_len;
-        p * p.log2()
+    let mut p = bytecount::count(data, byte) as f32;
+    if p > 0.0f32 {
+        p /= data_len;
+        p *= p.log2();
     }
+    p
 }
 
 /// Calculates the Shannon entropy of a slice of bytes representing DNA bases. This slice should only consist of
