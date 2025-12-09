@@ -1,11 +1,10 @@
-use numpy::{ndarray::Array1, PyArray1, PyArrayMethods};
+use numpy::{ndarray::ArrayView1, PyArray1, PyArrayMethods};
 use pyo3::{prelude::*, pybacked::PyBackedStr};
 use std::iter::zip;
 
-// TODO: use this
-pub fn calculate_seq_with_wildcards(qs: &str, quals: Option<Array1<u8>>, base_wildcard_threshold: u8) -> String {
+pub fn calculate_seq_with_wildcards(qs: &str, quals: Option<&ArrayView1<u8>>, base_wildcard_threshold: u8) -> String {
     if let Some(qls) = quals {
-        zip(qs.chars(), qls).map(|(c, q)| {
+        zip(qs.chars(), qls).map(|(c, &q)| {
             if q > base_wildcard_threshold { c } else { 'X' }
         }).collect::<String>()
     } else {
