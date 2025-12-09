@@ -157,45 +157,52 @@ impl STRkitVCFReader {
             match self.contig_format {
                 VCFContigFormat::Num => lb_contig.strip_prefix("chr").unwrap_or(lb_contig),
                 VCFContigFormat::Acc => _human_chrom_to_refseq_accession(lb_contig, &self.contig_names).unwrap(),
-                _ => lb_contig, // Otherwise, leave as-is (will cause a panic below with name2rid)
+                _ => lb_contig, // Otherwise, leave as-is (will cause an error below with name2rid)
             }
         } else {
             lb_contig // Exists, leave as-is
         };
 
-        let contig_rid = header.name2rid(snv_contig.as_bytes())
-            .unwrap_or_else(|_| panic!("Could not find contig in VCF: {}", lb_contig));
-        reader.fetch(contig_rid, locus_block.left, Some(locus_block.right + 1)).unwrap();
+        match header.name2rid(snv_contig.as_bytes()) {
+            Ok(contig_rid) => {
+                reader.fetch(contig_rid, locus_block.left, Some(locus_block.right + 1)).unwrap();
 
-        let mut record = reader.empty_record();
+                let mut record = reader.empty_record();
 
-        while let Some(r) = reader.read(&mut record) {
-            match r {
-                Ok(_) => {
-                    let alleles = record.alleles();
+                while let Some(r) = reader.read(&mut record) {
+                    match r {
+                        Ok(_) => {
+                            let alleles = record.alleles();
 
-                    let snv_ref = alleles[0];
-                    if snv_ref.len() == 1 {
-                        let snv_alts = alleles[1..]
-                            .iter()
-                            .filter(|a| a.len() == 1)
-                            .map(|aa| aa[0] as char)
-                            .collect::<Vec<char>>();
+                            let snv_ref = alleles[0];
+                            if snv_ref.len() == 1 {
+                                let snv_alts = alleles[1..]
+                                    .iter()
+                                    .filter(|a| a.len() == 1)
+                                    .map(|aa| aa[0] as char)
+                                    .collect::<Vec<char>>();
 
-                        if !snv_alts.is_empty() {
-                            candidate_snvs.insert(record.pos() as usize, CandidateSNV {
-                                id: String::from_utf8(record.id()).unwrap(),
-                                ref_base: snv_ref[0] as char,
-                                alts: snv_alts,
-                            });
+                                if !snv_alts.is_empty() {
+                                    candidate_snvs.insert(record.pos() as usize, CandidateSNV {
+                                        id: String::from_utf8(record.id()).unwrap(),
+                                        ref_base: snv_ref[0] as char,
+                                        alts: snv_alts,
+                                    });
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            return Err(PyErr::new::<PyException, _>("Reading VCF record failed"));
                         }
                     }
                 }
-                Err(_) => panic!("Reading VCF record failed")
+
+                Bound::new(py, CandidateSNVs { snvs: candidate_snvs })
+            },
+            Err(_) => {
+                Err(PyErr::new::<PyException, _>(format!("Could not find contig in VCF: {}", lb_contig)))
             }
         }
-
-        Bound::new(py, CandidateSNVs { snvs: candidate_snvs })
     }
 }
 
