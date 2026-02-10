@@ -382,6 +382,8 @@ fn _get_read_coords_from_matched_pairs(
         last_idx = query_coord;
     }
 
+    // -----------------------------------------------------------------------------------------------------------------
+
     (left_flank_start, left_flank_end, right_flank_start, right_flank_end)
 }
 
