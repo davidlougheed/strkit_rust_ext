@@ -125,7 +125,7 @@ def process_read_snvs_for_locus_and_calculate_useful_snvs(
     ref_cache: str,
     # ---
     read_dict_extra: dict[str, dict],
-    read_aligned_coords: dict[str, STRkitAlignedCoords],
+    read_aligned_coords: dict[str, STRkitSegmentAlignmentDataForLocus],
     candidate_snvs: CandidateSNVs,
     min_allele_reads: int,
     significant_clip_snv_take_in: int,
@@ -161,6 +161,9 @@ def get_aligned_pair_matches(
 # reads
 
 class STRkitSegmentAlignmentDataForLocus:
+    left_flank_end: int
+    realigned: bool
+
     def __init__(
         self,
         aligned_coords: STRkitAlignedCoords,
@@ -171,12 +174,16 @@ class STRkitSegmentAlignmentDataForLocus:
         realigned: bool,
     ): ...
 
+
+    def query_coord_at_idx(self, idx: int) -> int: ...
+    def find_coord_idx_by_ref_pos(self, target: int, start_left: int) -> tuple[int, bool]: ...
+
 class STRkitAlignedSegmentSequenceDataForLocus:
     flank_left_seq_wc: str
     flank_right_seq_wc: str
     tr_seq: str
     tr_seq_wc: str
-    tr_len_with_flank: str
+    tr_len_with_flank: int
 
     def get_motif_size_kmers(self) -> list[str]: ...
     def get_est_copy_num(self) -> int: ...

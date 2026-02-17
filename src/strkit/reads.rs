@@ -12,7 +12,7 @@ use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
-use crate::aligned_coords::STRkitAlignedCoords;
+use crate::aligned_coords::{AlignedCoordsMethods, STRkitAlignedCoords};
 use crate::cigar::{decode_cigar_item, get_aligned_pair_matches_rs};
 use crate::exceptions::LowMeanBaseQual;
 use crate::locus::{STRkitLocus, STRkitLocusBlock};
@@ -27,12 +27,23 @@ pub struct STRkitSegmentAlignmentDataForLocus {
     pub aligned_coords: STRkitAlignedCoords,
     // ---
     pub left_flank_start: usize,
+    #[pyo3(get)]
     pub left_flank_end: usize,
     pub right_flank_start: usize,
     pub right_flank_end: usize,
     // ---
     #[pyo3(get)]
     pub realigned: bool,
+}
+
+// TODO: remove this struct with future Rust porting in favour of just accessing .aligned_coords
+impl AlignedCoordsMethods for STRkitSegmentAlignmentDataForLocus {
+    fn query_coord_at_idx(&self, idx: usize) -> u64 {
+        self.aligned_coords.query_coord_at_idx(idx)
+    }
+    fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
+        self.aligned_coords.find_coord_idx_by_ref_pos(target, start_left)
+    }
 }
 
 #[pymethods]
@@ -54,6 +65,14 @@ impl STRkitSegmentAlignmentDataForLocus {
             right_flank_end,
             realigned,
         })
+    }
+
+    pub fn query_coord_at_idx(&self, idx: usize) -> u64 {
+        AlignedCoordsMethods::query_coord_at_idx(self, idx)
+    }
+
+    pub fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
+        AlignedCoordsMethods::find_coord_idx_by_ref_pos(self, target, start_left)
     }
 }
 
@@ -95,7 +114,7 @@ impl STRkitAlignedSegmentSequenceDataForLocus {
 
     /// Adjusts a pairwise alignment score (integer) from parasail into a floating point score (roughly) normalized to
     /// the length of the TR sequence + left/right flanking sequence.
-    fn calc_adj_score(&self, read_cn_score: usize) -> Option<f32> {
+    fn calc_adj_score(&self, read_cn_score: i32) -> Option<f32> {
         (self.tr_len > 0).then(|| read_cn_score as f32 / (self.tr_len + self._flank_size * 2) as f32)
     }
 }

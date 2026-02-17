@@ -9,6 +9,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::reads::STRkitAlignedSegment;
 use crate::reads::STRkitLocusBlockSegments;
+use crate::reads::STRkitSegmentAlignmentDataForLocus;
 use crate::snvs::GetReadSNVs;
 use crate::strkit::snvs::{CandidateSNVs, calculate_useful_snvs};
 
@@ -448,7 +449,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_most_coord: usize,
     ref_cache: &str,
     read_dict_extra: Bound<PyDict>,
-    read_aligned_coords: &Bound<PyDict>,
+    read_locus_alignment_data: &Bound<PyDict>,
     candidate_snvs: &Bound<'_, CandidateSNVs>,
     min_allele_reads: usize,
     significant_clip_snv_take_in: usize,
@@ -499,12 +500,13 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         let scl = if segment.sig_clip_left { significant_clip_snv_take_in } else { 0 };
         let scr = if segment.sig_clip_right { significant_clip_snv_take_in } else { 0 };
 
-        let aligned_coords =
-            read_aligned_coords
+        let segment_alignment_data_for_locus =
+            read_locus_alignment_data
                 .get_item(&rn)?
                 .unwrap()
-                .downcast_into::<STRkitAlignedCoords>()?
+                .cast_into::<STRkitSegmentAlignmentDataForLocus>()?
                 .borrow();
+        let aligned_coords = &segment_alignment_data_for_locus.aligned_coords;
         let coords_len = aligned_coords.query_coords.len();
 
         let twox_takein = significant_clip_snv_take_in * 2;
@@ -542,6 +544,6 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     // --------------------------------------------------------------------------------------------
 
     calculate_useful_snvs(
-        py, block_segments, read_dict_extra, read_aligned_coords, read_snvs, locus_snvs, min_allele_reads
+        py, block_segments, read_dict_extra, read_locus_alignment_data, read_snvs, locus_snvs, min_allele_reads
     )
 }

@@ -13,6 +13,24 @@ pub struct STRkitAlignedCoords {
     pub ref_coords: Vec<u64>,
 }
 
+pub trait AlignedCoordsMethods {
+    fn query_coord_at_idx(&self, idx: usize) -> u64;
+    fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool);
+}
+
+impl AlignedCoordsMethods for STRkitAlignedCoords {
+    fn query_coord_at_idx(&self, idx: usize) -> u64 {
+        self.query_coords[idx]
+    }
+
+    fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
+        let t = target as u64;
+        let idx = start_left + self.ref_coords[start_left..].partition_point(|&x| x < t);
+        let found = idx < self.ref_coords.len() && self.ref_coords[idx] == t;
+        (idx, found)
+    }
+}
+
 #[pymethods]
 impl STRkitAlignedCoords {
     #[new]
@@ -27,14 +45,11 @@ impl STRkitAlignedCoords {
     }
 
     fn query_coord_at_idx(&self, idx: usize) -> u64 {
-        self.query_coords[idx]
+        AlignedCoordsMethods::query_coord_at_idx(self, idx)
     }
 
     pub fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
-        let t = target as u64;
-        let idx = start_left + self.ref_coords[start_left..].partition_point(|&x| x < t);
-        let found = idx < self.ref_coords.len() && self.ref_coords[idx] == t;
-        (idx, found)
+        AlignedCoordsMethods::find_coord_idx_by_ref_pos(self, target, start_left)
     }
 
     // --- below are functions which make this class pickle-able ---

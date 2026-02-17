@@ -13,8 +13,7 @@ use std::sync::Mutex;
 
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::locus::STRkitLocusBlock;
-use crate::reads::STRkitAlignedSegment;
-use crate::reads::STRkitLocusBlockSegments;
+use crate::reads::{STRkitAlignedSegment, STRkitLocusBlockSegments, STRkitSegmentAlignmentDataForLocus};
 
 static SNV_OUT_OF_RANGE_CHAR: char = '-';
 static SNV_GAP_CHAR: char = '_';
@@ -489,7 +488,7 @@ pub fn calculate_useful_snvs(
     py: Python<'_>,
     block_segments: &STRkitLocusBlockSegments,
     read_dict_extra: Bound<'_, PyDict>,
-    read_aligned_coords: &Bound<'_, PyDict>,
+    read_locus_alignment_data: &Bound<'_, PyDict>,
     read_snvs: HashMap<String, HashMap<usize, (char, u8)>>,
     locus_snvs: HashSet<usize>,
     min_allele_reads: usize,
@@ -507,7 +506,7 @@ pub fn calculate_useful_snvs(
             .map(|&s| (s, HashMap::new()))
             .collect();
 
-    for rn in read_dict_extra.keys().into_iter().map(|x| x.downcast_into::<PyString>().unwrap()) {
+    for rn in read_dict_extra.keys().into_iter().map(|x| x.cast_into::<PyString>().unwrap()) {
         let rn_str = rn.to_str()?;
 
         let Some(snvs) = read_snvs.get(rn_str) else {
@@ -520,13 +519,18 @@ pub fn calculate_useful_snvs(
         let qs = segment.query_sequence.as_bytes();
         let fqqs = segment.query_qualities_slice();
 
-        let aligned_coords = read_aligned_coords.get_item(&rn)?.unwrap().downcast_into::<STRkitAlignedCoords>()?;
+        let segment_alignment_data_for_locus =
+            read_locus_alignment_data
+                .get_item(&rn)?
+                .unwrap()
+                .cast_into::<STRkitSegmentAlignmentDataForLocus>()?
+                .borrow();
+        let aligned_coords = &segment_alignment_data_for_locus.aligned_coords;
 
         let segment_start = segment.start as usize;
         let segment_end = segment.end as usize;
 
         let mut last_pair_idx: usize = 0;
-        let acb = &aligned_coords.borrow();
         let snv_list: Vec<(char, u8)> = sorted_snvs.iter().map(|&snv_pos| {
             let mut base: char = SNV_OUT_OF_RANGE_CHAR;
             let mut qual: u8 = 0;
@@ -538,7 +542,7 @@ pub fn calculate_useful_snvs(
                 } else {
                     // Binary search for base from correct pair
                     //  - We go in order, so we don't have to search left of the last pair index we tried.
-                    let (sb, idx, found) = find_base_at_pos(qs, acb, snv_pos, last_pair_idx);
+                    let (sb, idx, found) = find_base_at_pos(qs, aligned_coords, snv_pos, last_pair_idx);
                     base = sb;
                     // 0 === indeterminate quality for out-of-range/gaps:
                     qual = if found { fqqs[idx] } else { 0 };
