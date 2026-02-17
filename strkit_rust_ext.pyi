@@ -210,6 +210,13 @@ class STRkitAlignedSegment:
         base_wildcard_threshold: int,
     ) -> STRkitAlignedSegmentSequenceDataForLocus: ...
 
+    def get_vcf_anchor_for_locus(
+        self,
+        locus_with_ref_data: STRkitLocusWithRefData,
+        segment_alignment_data_for_locus: STRkitSegmentAlignmentDataForLocus,
+        vcf_anchor_size: int,
+    ) -> str: ...
+
 
 class STRkitLocusBlockSegments:
     left_most_coord: int

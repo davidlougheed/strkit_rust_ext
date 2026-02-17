@@ -15,7 +15,7 @@ use std::sync::Mutex;
 use crate::aligned_coords::{AlignedCoordsMethods, STRkitAlignedCoords};
 use crate::cigar::{decode_cigar_item, get_aligned_pair_matches_rs};
 use crate::exceptions::LowMeanBaseQual;
-use crate::locus::{STRkitLocus, STRkitLocusBlock};
+use crate::locus::{STRkitLocus, STRkitLocusBlock, STRkitLocusWithRefData};
 use crate::snvs::CandidateSNVs;
 use crate::utils::{normalize_contig, starts_with_chr, calculate_seq_with_wildcards, calc_motif_size_kmers};
 
@@ -296,6 +296,34 @@ impl STRkitAlignedSegment {
                 tr_len_with_flank,
             }
         )
+    }
+
+    fn get_vcf_anchor_for_locus(
+        &self,
+        locus_with_ref_data: &STRkitLocusWithRefData,
+        segment_alignment_data_for_locus: &STRkitSegmentAlignmentDataForLocus,
+        vcf_anchor_size: usize,
+    ) -> String {
+        // calculates a VCF sequence start 'anchor' for this particular read. a consensus of the read anchors will
+        // determine the allele anchor, which is a bit of a hack.
+
+        // it would be nice to do this with the coord pairs instead - but we don't have a great way then of finding a
+        // coord that works for both the ref and every read without doing another iteration.
+        let end = segment_alignment_data_for_locus.left_flank_end;
+        for anchor_offset in (1..vcf_anchor_size+1).rev() {
+            // start from largest - want to include small indels in query if they appear immediately upstream
+            let (anchor_pair_idx, anchor_pair_found) = segment_alignment_data_for_locus.find_coord_idx_by_ref_pos(
+                locus_with_ref_data.left_coord_adj as usize - anchor_offset, 0
+            );
+            if anchor_pair_found {
+                let start = segment_alignment_data_for_locus.query_coord_at_idx(anchor_pair_idx) as usize;
+                return self.query_sequence[start..end].to_string();
+            }
+            // otherwise, there's an indel in ref - so we shrink the anchor size
+        }
+
+        // if nothing worked, leave as blank - anchor base deleted
+        String::new()
     }
 }
 
