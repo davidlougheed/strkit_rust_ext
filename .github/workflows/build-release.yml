@@ -14,20 +14,20 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.85.0
+          toolchain: 1.88.0
           rustflags: ""
       - name: Run tests
         run: |
           export CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true
           python -m venv env
           source env/bin/activate
-          python -m pip install 'maturin>=1.9.6,<1.10' pytest numpy
+          python -m pip install 'maturin>=1.12.2,<1.13' pytest numpy
           python -m maturin develop --jobs 2
           pytest
           cargo test
@@ -38,13 +38,13 @@ jobs:
       matrix:
         target: [x86_64, aarch64, armv7]  # x86 disabled for now
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          rust-toolchain: 1.85.0
+          rust-toolchain: 1.88.0
           target: ${{ matrix.target }}
-          args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13
+          args: --release --verbose --jobs 2 --out dist -i python3.12 -i python3.13 -i python3.14
           # sccache: 'true'
           manylinux: '2_28'
           # https://github.com/sfackler/rust-openssl/issues/2036#issuecomment-1724324145
@@ -102,7 +102,7 @@ jobs:
   #     matrix:
   #       target: [x86_64-pc-windows-gnu]
   #   steps:
-  #     - uses: actions/checkout@v5
+  #     - uses: actions/checkout@v6
   #     # - name: Install OpenSSL (Windows)
   #     #   shell: powershell
   #     #   run: |
@@ -132,7 +132,7 @@ jobs:
   #         - { sys: ucrt64,  env: ucrt-x86_64 }
 
   #   steps:
-  #     - uses: actions/checkout@v5
+  #     - uses: actions/checkout@v6
   #     - name: Set up MSYS2 MinGW-W64
   #       uses: msys2/setup-msys2@v2
   #       with:
@@ -187,13 +187,13 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          rust-toolchain: 1.85.0
+          rust-toolchain: 1.88.0
           target: ${{ matrix.target }}
-          args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13
+          args: --release --verbose --jobs 2 --out dist -i python3.12 -i python3.13 -i python3.14
           # sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -206,7 +206,7 @@ jobs:
   sdist:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
@@ -239,4 +239,4 @@ jobs:
         with:
           command: upload
           args: --non-interactive --skip-existing wheels/*
-          rust-toolchain: 1.85.0
+          rust-toolchain: 1.88.0
