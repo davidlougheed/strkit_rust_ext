@@ -1365,6 +1365,7 @@ dependencies = [
  "bincode",
  "bio",
  "bytecount",
+ "ndarray 0.17.2",
  "numpy",
  "once_cell",
  "parasail-rs",

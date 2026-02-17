@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 [dependencies]
 bio = "=2.2.0"
 numpy = "0.28"
+ndarray = "0.17"
 # extension-module is needed:
 #   https://pyo3.rs/v0.25.0/building-and-distribution#the-extension-module-feature
 # generate-import-lib allows cross-compilation for Windows:
