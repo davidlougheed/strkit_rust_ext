@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use parasail_rs::{Aligner, Matrix, Profile};
+use parasail_rs::prelude::{Aligner, Matrix, Profile};
 use pyo3::pyfunction;
 use strsim::levenshtein;
 use std::{borrow::Borrow, cmp, collections::{HashMap, HashSet}};
