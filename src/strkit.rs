@@ -1,6 +1,7 @@
 pub mod aligned_coords;
 pub mod cigar;
 pub mod consensus;
+pub mod exceptions;
 pub mod locus;
 pub mod reads;
 pub mod repeats;

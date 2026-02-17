@@ -51,6 +51,10 @@ pub fn normalize_contig_py(contig: PyBackedStr, has_chr: bool) -> String {
     normalize_contig(&contig, has_chr)
 }
 
+pub fn calc_motif_size_kmers(tr_read_seq_wc: &str, tr_len: usize, motif_size: usize) -> Vec<&str> {
+    (0..tr_len-motif_size+1).map(|i| &tr_read_seq_wc[i..i+motif_size]).collect()
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -67,11 +71,17 @@ mod test {
     #[test]
     fn test_normalize_contig() {
         assert_eq!(normalize_contig("chr1", true), "chr1");
-        assert_eq!(normalize_contig("chrM", true), "M");
+        assert_eq!(normalize_contig("chrM", true), "chrM");
         assert_eq!(normalize_contig("chr1", false), "1");
+        assert_eq!(normalize_contig("chrM", false), "M");
         assert_eq!(normalize_contig("1", true), "chr1");
         assert_eq!(normalize_contig("1", false), "1");
         assert_eq!(normalize_contig("X", true), "chrX");
         assert_eq!(normalize_contig("Y", false), "Y");
+    }
+
+    #[test]
+    fn test_calc_motif_size_kmers() {
+        assert_eq!(calc_motif_size_kmers("CACACACTCA", 10, 2), vec!["CA", "AC", "CA", "AC", "CA", "AC", "CT", "TC", "CA"]);
     }
 }

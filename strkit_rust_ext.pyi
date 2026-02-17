@@ -20,6 +20,11 @@ class STRkitAlignedCoords:
 
 def consensus_seq(seqs: Sequence[str], logger: Logger, max_mdn_poa_length: int) -> Optional[tuple[str, Literal["single", "poa", "best_rep"]]]: ...
 
+# exceptions
+
+class LowMeanBaseQual(Exception):
+    mean_base_qual: int
+
 # locus
 
 class STRkitLocus:
@@ -86,6 +91,12 @@ class STRkitLocusWithRefData:
     ref_total_seq: str
     ref_time: float
 
+    @property
+    def left_flank_coord() -> int: ...
+
+    @property
+    def right_flank_coord() -> int: ...
+
 
 class STRkitLocusBlock:
     contig: str
@@ -97,20 +108,18 @@ class STRkitLocusBlock:
 
 def get_read_coords_from_matched_pairs(
     locus_with_ref_data: STRkitLocusWithRefData,
-    query_seq: str,
+    segment: STRkitAlignedSegment,
     aligned_coords: STRkitAlignedCoords,
 ) -> tuple[int, int, int, int]: ...
 
 def get_pairs_and_tr_read_coords(
-    cigar: NDArray[numpy.uint32],
-    segment_start: int,
     locus_with_ref_data: STRkitLocusWithRefData,
-    query_seq: str,
+    segment: STRkitAlignedSegment,
 ) -> tuple[Optional[STRkitAlignedCoords], int, int, int, int]: ...
 
 def process_read_snvs_for_locus_and_calculate_useful_snvs(
-    left_coord_adj: int,
-    right_coord_adj: int,
+    block_segments: STRkitLocusBlockSegments,
+    locus_with_ref_data: STRkitLocusWithRefData,
     # ---
     left_most_coord: int,
     ref_cache: str,
@@ -151,6 +160,28 @@ def get_aligned_pair_matches(
 
 # reads
 
+class STRkitSegmentAlignmentDataForLocus:
+    def __init__(
+        self,
+        aligned_coords: STRkitAlignedCoords,
+        left_flank_start: int,
+        left_flank_end: int,
+        right_flank_start: int,
+        right_flank_end: int,
+        realigned: bool,
+    ): ...
+
+class STRkitAlignedSegmentSequenceDataForLocus:
+    flank_left_seq_wc: str
+    flank_right_seq_wc: str
+    tr_seq: str
+    tr_seq_wc: str
+    tr_len_with_flank: str
+
+    def get_motif_size_kmers(self) -> list[str]: ...
+    def get_est_copy_num(self) -> int: ...
+    def calc_adj_score(self, read_cn_score: int) -> float: ...
+
 class STRkitAlignedSegment:
     name: str
     length: int
@@ -159,9 +190,18 @@ class STRkitAlignedSegment:
     is_reverse: bool
     query_sequence: str
     query_qualities: NDArray[numpy.uint8]
-    raw_cigar: NDArray[numpy.uint32]
     hp: Optional[int]
     ps: Optional[int]
+
+    def soft_clip_overlaps_locus(self, locus: STRkitLocus) -> bool: ...
+
+    def get_sequence_data_for_locus(
+        self,
+        locus: STRkitLocus,
+        segment_alignment_data_for_locus: STRkitSegmentAlignmentDataForLocus,
+        min_avg_phred: float,
+        base_wildcard_threshold: int,
+    ) -> STRkitAlignedSegmentSequenceDataForLocus: ...
 
 
 class STRkitLocusBlockSegments:
@@ -183,6 +223,7 @@ class STRkitBAMReader:
         skip_supp: bool,
         skip_sec: bool,
         use_hp: bool,
+        significant_clip_threshold: int,
         logger: Logger,
         debug_logs: bool,
     ): ...

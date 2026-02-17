@@ -1,5 +1,4 @@
 use bincode;
-use numpy::{PyArray1, PyArray2, PyArrayMethods};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyString};
@@ -8,8 +7,11 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::aligned_coords::STRkitAlignedCoords;
+use crate::reads::STRkitAlignedSegment;
+use crate::reads::STRkitLocusBlockSegments;
+use crate::snvs::GetReadSNVs;
 use crate::strkit::cigar::get_aligned_pair_matches_rs;
-use crate::strkit::snvs::{CandidateSNVs, calculate_useful_snvs, get_read_snvs};
+use crate::strkit::snvs::{CandidateSNVs, calculate_useful_snvs};
 
 use super::snvs::UsefulSNVsParams;
 
@@ -218,6 +220,23 @@ pub struct STRkitLocusWithRefData {
     // This struct must be built with the STRkitLocus.with_ref_data builder function above.
 }
 
+#[pymethods]
+impl STRkitLocusWithRefData {
+    #[getter]
+    fn left_flank_coord(&self) -> i32 {
+        self.locus_def.left_flank_coord
+    }
+
+    #[getter]
+    fn right_flank_coord(&self) -> i32 {
+        self.locus_def.right_flank_coord
+    }
+
+    fn log_str(&self) -> &str {
+        self.locus_def.log_str()
+    }
+}
+
 
 #[pyclass]
 pub struct STRkitLocusBlockIter {
@@ -390,43 +409,43 @@ fn _get_read_coords_from_matched_pairs(
 #[pyfunction]
 pub fn get_read_coords_from_matched_pairs(
     locus_with_ref_data: &STRkitLocusWithRefData,
-    query_seq: &str,
-    aligned_coords: &Bound<'_, STRkitAlignedCoords>,
+    segment: &STRkitAlignedSegment,
+    aligned_coords: &STRkitAlignedCoords,
 ) -> (i32, i32, i32, i32) {
-    _get_read_coords_from_matched_pairs(locus_with_ref_data, query_seq, &aligned_coords.borrow())
+    _get_read_coords_from_matched_pairs(locus_with_ref_data, &segment.query_sequence, aligned_coords)
 }
 
 #[pyfunction]
 pub fn get_pairs_and_tr_read_coords<'py>(
     py: Python<'py>,
-    cigar: &Bound<'py, PyArray2<u32>>,
-    segment_start: u64,
     locus_with_ref_data: &Bound<'py, STRkitLocusWithRefData>,
-    query_seq: &str,
-) -> (Option<Py<STRkitAlignedCoords>>, i32, i32, i32, i32) {
-    let aligned_coords = get_aligned_pair_matches_rs(cigar, 0, segment_start);
+    segment: &mut STRkitAlignedSegment,
+) -> PyResult<(Option<Py<STRkitAlignedCoords>>, i32, i32, i32, i32)> {
+    segment.cache_cigar_aligned_coords();
+    let aligned_coords = segment.cigar_aligned_coords.clone().expect("should have cigar_aligned_coords");
+
     let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) =
-        _get_read_coords_from_matched_pairs(&locus_with_ref_data.borrow(), query_seq, &aligned_coords);
+        _get_read_coords_from_matched_pairs(&locus_with_ref_data.borrow(), &segment.query_sequence, &aligned_coords);
 
     if left_flank_start == -1 || left_flank_end == -1 || right_flank_start == -1 || right_flank_end == -1 {
         // Avoid converting to Python objects / passing over Python-Rust boundary, return a None instead
-        (None, left_flank_start, left_flank_end, right_flank_start, right_flank_end)
+        Ok((None, left_flank_start, left_flank_end, right_flank_start, right_flank_end))
     } else {
-        (
-            Some(Py::new(py, aligned_coords).unwrap()),
+        Ok((
+            Some(Py::new(py, aligned_coords)?),
             left_flank_start,
             left_flank_end,
             right_flank_start,
             right_flank_end,
-        )
+        ))
     }
 }
 
 #[pyfunction]
 pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     py: Python<'_>,
-    left_coord_adj: usize,
-    right_coord_adj: usize,
+    block_segments: &STRkitLocusBlockSegments,
+    locus_with_ref_data: &STRkitLocusWithRefData,
     left_most_coord: usize,
     ref_cache: &str,
     read_dict_extra: Bound<PyDict>,
@@ -441,7 +460,10 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     // Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
     // in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
 
-    // Mutates: read_dict_extra
+    let left_coord_adj = locus_with_ref_data.left_coord_adj as usize;
+    let right_coord_adj = locus_with_ref_data.left_coord_adj as usize;
+
+    // Mutates: read_dict_extra (via call to calculate_useful_snvs)
 
     let mut locus_snvs: HashSet<usize> = HashSet::new();
     let mut read_snvs: HashMap<String, HashMap<usize, (char, u8)>> = HashMap::new();
@@ -458,22 +480,25 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     let candidate_snvs_b = candidate_snvs.borrow();
 
     for rn in read_dict_extra.keys().into_iter().map(|x| x.downcast_into::<PyString>().unwrap()) {
-        let read_dict_extra_for_read = read_dict_extra.get_item(&rn)?.unwrap().downcast_into::<PyDict>()?;
+        let segment = block_segments.get_segment_by_name(rn.as_borrowed().to_str()?).unwrap();
 
-        let scl = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_left"))?.unwrap().extract::<usize>()?;
-        let scr = read_dict_extra_for_read.get_item(intern!(py, "sig_clip_right"))?.unwrap().extract::<usize>()?;
-
-        if scl > 0 || scr > 0 {
+        if segment.sig_clip_left || segment.sig_clip_right {
             logger.call_method1(
                 intern!(py, "debug"),
                 (
-                    intern!(py, "%s - %s has significant clipping; trimming pairs by %d bp per side for SNV-finding"),
+                    intern!(
+                        py,
+                        "%s - %s has significant clipping; trimming pairs by %d bp clipped per side for SNV-finding"
+                    ),
                     locus_log_str,
                     &rn,
                     significant_clip_snv_take_in,
                 ),
             )?;
         }
+
+        let scl = if segment.sig_clip_left { significant_clip_snv_take_in } else { 0 };
+        let scr = if segment.sig_clip_right { significant_clip_snv_take_in } else { 0 };
 
         let aligned_coords =
             read_aligned_coords
@@ -497,15 +522,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             continue;
         }
 
-        let qsi = read_dict_extra_for_read.get_item(intern!(py, "_qs"))?.unwrap();
-        let query_sequence = qsi.extract::<&str>()?;
-        let fqqs_i1 = read_dict_extra_for_read.get_item(intern!(py, "_fqqs"))?.unwrap();
-        let fqqs_i2 = fqqs_i1.downcast::<PyArray1<u8>>()?.readonly();
-        let fqqs = fqqs_i2.as_slice()?;
-
-        let snvs = get_read_snvs(
-            query_sequence,
-            fqqs,
+        let snvs: HashMap<usize, (char, u8)> = segment.get_read_snvs(
             ref_cache,
             // aligned coords without clipping at ends
             &aligned_coords.query_coords[scl..(coords_len - scr)],
@@ -525,5 +542,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
 
     // --------------------------------------------------------------------------------------------
 
-    calculate_useful_snvs(py, read_dict_extra, read_aligned_coords, read_snvs, locus_snvs, min_allele_reads)
+    calculate_useful_snvs(
+        py, block_segments, read_dict_extra, read_aligned_coords, read_snvs, locus_snvs, min_allele_reads
+    )
 }

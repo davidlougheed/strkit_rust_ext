@@ -1,9 +1,8 @@
 use bytecount;
-use numpy::{PyArray1, PyArrayMethods};
+use pyo3::exceptions::PyException;
 use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::pybacked::PyBackedStr;
 use pyo3::types::{PyBytes, PyDict, PyString};
 use regex::Regex;
 use rust_htslib::bcf;
@@ -14,6 +13,8 @@ use std::sync::Mutex;
 
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::locus::STRkitLocusBlock;
+use crate::reads::STRkitAlignedSegment;
+use crate::reads::STRkitLocusBlockSegments;
 
 static SNV_OUT_OF_RANGE_CHAR: char = '-';
 static SNV_GAP_CHAR: char = '_';
@@ -247,9 +248,9 @@ pub fn shannon_entropy(data: &Bound<'_, PyBytes>) -> f32 {
 }
 
 pub fn get_snvs_meticulous(
-    query_sequence: &str,
+    query_sequence: &[u8],
     query_quals: &[u8],
-    ref_seq: &str,
+    ref_seq: &[u8],
     query_coords: &[u64],
     ref_coords: &[u64],
     ref_coord_start: usize,
@@ -258,9 +259,6 @@ pub fn get_snvs_meticulous(
     useful_snvs_params: &UsefulSNVsParams,
 ) -> HashMap<usize, (char, u8)> {
     let qry_seq_len = query_sequence.len();
-
-    let qry_seq_bytes = query_sequence.as_bytes();
-    let ref_seq_bytes = ref_seq.as_bytes();
 
     let mut lhs_contiguous: usize = 0;
     let mut rhs_contiguous: usize = 0;
@@ -284,8 +282,8 @@ pub fn get_snvs_meticulous(
 
         let read_pos = query_coords[i] as usize;
 
-        let read_base = qry_seq_bytes[read_pos];
-        let ref_base = ref_seq_bytes[ref_pos - ref_coord_start];
+        let read_base = query_sequence[read_pos];
+        let ref_base = ref_seq[ref_pos - ref_coord_start];
 
         let contiguous_at_base = match last_rp {
             Some(lr) => useful_snvs_params.contiguous_threshold == 0 || ref_pos - lr == 1,
@@ -328,7 +326,7 @@ pub fn get_snvs_meticulous(
 
         if read_base != ref_base {
             // If our entropy is ok, add this to the SNV group
-            let seq = &qry_seq_bytes[
+            let seq = &query_sequence[
                 read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)
             ];
             if _shannon_entropy_dna(seq) >= entropy_threshold {
@@ -353,9 +351,9 @@ pub fn get_snvs_meticulous(
 }
 
 pub fn get_snvs_simple(
-    query_sequence: &str,
+    query_sequence: &[u8],
     query_quals: &[u8],
-    ref_seq: &str,
+    ref_seq: &[u8],
     query_coords: &[u64],
     ref_coords: &[u64],
     ref_coord_start: usize,
@@ -363,9 +361,7 @@ pub fn get_snvs_simple(
     tr_end_pos: usize,
     useful_snvs_params: &UsefulSNVsParams,
 ) -> HashMap<usize, (char, u8)> {
-    let qry_seq_bytes = query_sequence.as_bytes();
-    let qry_seq_len = qry_seq_bytes.len();
-    let ref_seq_bytes = ref_seq.as_bytes();
+    let qry_seq_len = query_sequence.len();
 
     let mut n_snvs = 0;
     let mut res = HashMap::new();
@@ -382,13 +378,13 @@ pub fn get_snvs_simple(
         }
 
         let read_pos = query_coords[i] as usize;
-        let qry_byte_at_pos = qry_seq_bytes[read_pos];
+        let qry_byte_at_pos = query_sequence[read_pos];
 
-        if qry_byte_at_pos == ref_seq_bytes[ref_pos - ref_coord_start] {
+        if qry_byte_at_pos == ref_seq[ref_pos - ref_coord_start] {
             continue;
         }
 
-        let seq = &qry_seq_bytes[
+        let seq = &query_sequence[
             read_pos - cmp::min(entropy_flank_size, read_pos)..cmp::min(read_pos + entropy_flank_size, qry_seq_len)
         ];
 
@@ -407,52 +403,70 @@ pub fn get_snvs_simple(
     res
 }
 
-pub fn get_read_snvs(
-    query_sequence: &str,
-    query_quals: &[u8],
-    ref_seq: &str,
-    query_coords: &[u64],
-    ref_coords: &[u64],
-    ref_coord_start: usize,
-    tr_start_pos: usize,
-    tr_end_pos: usize,
-    useful_snvs_params: &UsefulSNVsParams,
-) -> HashMap<usize, (char, u8)> {
-    // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
-    // surrounded by a stretch of aligned bases of a specified size on either side.
-    // Returns a hash map of <position, base>
+pub trait GetReadSNVs {
+    fn get_read_snvs(
+        &self,
+        ref_seq: &str,
+        query_coords: &[u64],
+        ref_coords: &[u64],
+        ref_coord_start: usize,
+        tr_start_pos: usize,
+        tr_end_pos: usize,
+        useful_snvs_params: &UsefulSNVsParams,
+    ) -> HashMap<usize, (char, u8)>;
+}
 
-    let snvs = get_snvs_simple(
-        query_sequence,
-        query_quals,
-        ref_seq,
-        query_coords,
-        ref_coords,
-        ref_coord_start,
-        tr_start_pos,
-        tr_end_pos,
-        useful_snvs_params,
-    );
+impl GetReadSNVs for STRkitAlignedSegment {
+    fn get_read_snvs(
+        &self,
+        ref_seq: &str,
+        query_coords: &[u64],
+        ref_coords: &[u64],
+        ref_coord_start: usize,
+        tr_start_pos: usize,
+        tr_end_pos: usize,
+        useful_snvs_params: &UsefulSNVsParams,
+    ) -> HashMap<usize, (char, u8)> {
+        // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
+        // surrounded by a stretch of aligned bases of a specified size on either side.
+        // Returns a hash map of <position, base>
 
-    if snvs.len() >= useful_snvs_params.too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
-        get_snvs_meticulous(
-            query_sequence,
+        let qry_seq_bytes = self.query_sequence.as_bytes();
+        let query_quals = self.query_qualities_slice();
+        let ref_seq_bytes = ref_seq.as_bytes();
+
+        let snvs = get_snvs_simple(
+            qry_seq_bytes,
             query_quals,
-            ref_seq,
+            ref_seq_bytes,
             query_coords,
             ref_coords,
             ref_coord_start,
             tr_start_pos,
             tr_end_pos,
             useful_snvs_params,
-        )
-    } else {
-        snvs
+        );
+
+        if snvs.len() >= useful_snvs_params.too_many_snvs_threshold {  // TOO MANY, some kind of mismapping going on?
+            get_snvs_meticulous(
+                qry_seq_bytes,
+                query_quals,
+                ref_seq_bytes,
+                query_coords,
+                ref_coords,
+                ref_coord_start,
+                tr_start_pos,
+                tr_end_pos,
+                useful_snvs_params,
+            )
+        } else {
+            snvs
+        }
     }
 }
 
 fn find_base_at_pos(
-    query_sequence: &str,
+    query_sequence_bytes: &[u8],
     aligned_coords: &STRkitAlignedCoords,
     t: usize,
     start_left: usize,
@@ -463,7 +477,7 @@ fn find_base_at_pos(
         // Even if not in SNV set, it is not guaranteed to be a reference base, since
         // it's possible it was surrounded by too much other variation during the original
         // SNV getter algorithm.
-        let qc = query_sequence.chars().nth(aligned_coords.query_coords[idx] as usize).unwrap();
+        let qc = query_sequence_bytes[aligned_coords.query_coords[idx] as usize] as char;
         (qc, idx, found)
     } else {
         // Nothing found, so must have been a gap
@@ -473,6 +487,7 @@ fn find_base_at_pos(
 
 pub fn calculate_useful_snvs(
     py: Python<'_>,
+    block_segments: &STRkitLocusBlockSegments,
     read_dict_extra: Bound<'_, PyDict>,
     read_aligned_coords: &Bound<'_, PyDict>,
     read_snvs: HashMap<String, HashMap<usize, (char, u8)>>,
@@ -493,30 +508,22 @@ pub fn calculate_useful_snvs(
             .collect();
 
     for rn in read_dict_extra.keys().into_iter().map(|x| x.downcast_into::<PyString>().unwrap()) {
-        let read_dict_extra_for_read = read_dict_extra.get_item(&rn)?.unwrap().downcast_into::<PyDict>()?;
         let rn_str = rn.to_str()?;
 
         let Some(snvs) = read_snvs.get(rn_str) else {
             continue;
         };
 
-        // Know this to not be None since we were passed only segments with non-None strings earlier
-        let qsi = read_dict_extra_for_read.get_item(intern!(py, "_qs"))?.unwrap();
-        let qs = qsi.extract::<&str>()?;
-        let fqqs_i =
-            read_dict_extra_for_read
-                .get_item(intern!(py, "_fqqs"))?
-                .unwrap()
-                .downcast_into::<PyArray1<u8>>()?
-                .readonly();
-        let fqqs = fqqs_i.as_slice()?;
+        let segment = block_segments.get_segment_by_name(rn_str)
+            .expect("Block segments should include all from read_dict_extra");
+
+        let qs = segment.query_sequence.as_bytes();
+        let fqqs = segment.query_qualities_slice();
 
         let aligned_coords = read_aligned_coords.get_item(&rn)?.unwrap().downcast_into::<STRkitAlignedCoords>()?;
 
-        let segment_start = read_dict_extra_for_read.get_item(intern!(py, "_ref_start"))?
-            .unwrap().extract::<usize>()?;
-        let segment_end = read_dict_extra_for_read.get_item(intern!(py, "_ref_end"))?
-            .unwrap().extract::<usize>()?;
+        let segment_start = segment.start as usize;
+        let segment_end = segment.end as usize;
 
         let mut last_pair_idx: usize = 0;
         let acb = &aligned_coords.borrow();
@@ -554,6 +561,8 @@ pub fn calculate_useful_snvs(
 
             (base, qual)
         }).collect();
+
+        let read_dict_extra_for_read = read_dict_extra.get_item(&rn)?.unwrap().downcast_into::<PyDict>()?;
 
         // TODO: set snv_bases as tuple
         read_dict_extra_for_read.set_item(intern!(py, "snv_bases"), snv_list)?;

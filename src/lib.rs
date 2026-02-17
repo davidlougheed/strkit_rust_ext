@@ -3,6 +3,7 @@ mod strkit;
 pub use crate::strkit::aligned_coords;
 pub use crate::strkit::cigar;
 pub use crate::strkit::consensus;
+pub use crate::strkit::exceptions;
 pub use crate::strkit::locus;
 pub use crate::strkit::reads;
 pub use crate::strkit::repeats;
@@ -20,6 +21,8 @@ fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(consensus::consensus_seq, m)?)?;
 
+    m.add_class::<exceptions::LowMeanBaseQual>()?;
+
     m.add_class::<locus::STRkitLocus>()?;
     m.add_class::<locus::STRkitLocusWithRefData>()?;
     m.add_class::<locus::STRkitLocusBlockIter>()?;
@@ -31,6 +34,8 @@ fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<reads::STRkitBAMReader>()?;
     m.add_class::<reads::STRkitAlignedSegment>()?;
     m.add_class::<reads::STRkitLocusBlockSegments>()?;
+    m.add_class::<reads::STRkitSegmentAlignmentDataForLocus>()?;
+    m.add_class::<reads::STRkitAlignedSegmentSequenceDataForLocus>()?;
 
     m.add_function(wrap_pyfunction!(repeats::get_repeat_count, m)?)?;
 
