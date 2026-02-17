@@ -10,7 +10,6 @@ use crate::aligned_coords::STRkitAlignedCoords;
 use crate::reads::STRkitAlignedSegment;
 use crate::reads::STRkitLocusBlockSegments;
 use crate::snvs::GetReadSNVs;
-use crate::strkit::cigar::get_aligned_pair_matches_rs;
 use crate::strkit::snvs::{CandidateSNVs, calculate_useful_snvs};
 
 use super::snvs::UsefulSNVsParams;
