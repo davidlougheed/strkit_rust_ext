@@ -1,6 +1,6 @@
 use numpy::ndarray::{Array1, s};
 use numpy::{PyArray, PyArray1, ToPyArray};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyException, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use rust_htslib::bam::ext::BamRecordExtensions;
@@ -157,6 +157,8 @@ pub struct STRkitAlignedSegment {
     hp: Option<i64>,
     #[pyo3(get)]
     ps: Option<i64>,
+    #[pyo3(get)]
+    ps_remapped: Option<i64>,
 }
 
 fn _extract_i64_tag_value(a: Result<Aux<'_>, RustHTSlibError>) -> Option<i64> {
@@ -353,6 +355,10 @@ impl STRkitLocusBlockSegments {
     pub fn get_segment_by_name(&self, rn: &str) -> Option<&STRkitAlignedSegment> {
         self.name_index_lookup.get(rn).map(|&si| &self.segments[si])
     }
+
+    pub fn get_segment_by_name_mut(&mut self, rn: &str) -> Option<&mut STRkitAlignedSegment> {
+        self.name_index_lookup.get(rn).map(|&si| &mut self.segments[si])
+    }
 }
 
 #[pymethods]
@@ -447,6 +453,12 @@ impl STRkitLocusBlockSegments {
             right_most_coord,
         ))
     }
+
+    fn set_segment_ps_remapped(&mut self, rn: &str, ps_remapped: i64) -> PyResult<()> {
+        let segment = self.get_segment_by_name_mut(rn).ok_or(PyException::new_err("could not get segment"))?;
+        segment.ps_remapped = Some(ps_remapped);
+        Ok(())
+    }
 }
 
 
@@ -517,6 +529,9 @@ impl STRkitBAMReader {
         py: Python<'py>,
         locus_block: &STRkitLocusBlock,
     ) -> PyResult<Py<STRkitLocusBlockSegments>> {
+        // Returns all aligned segments which overlap the locus block's left-most/right-most coordinates, plus some
+        // data structures for doing lookups on them.
+
         let mut reader = self.reader.lock().unwrap();
 
         let contig_norm = normalize_contig(&locus_block.loci[0].contig, self.any_contig_name_has_chr); // TODO: hash map
@@ -608,6 +623,7 @@ impl STRkitBAMReader {
                         // --- end cigar stuff
                         hp: if self.use_hp { _extract_i64_tag_value(record.aux(b"HP")) } else { None },
                         ps: if self.use_hp { _extract_i64_tag_value(record.aux(b"PS")) } else { None },
+                        ps_remapped: None,
                     };
 
                     let nc = aligned_segment.name.clone();

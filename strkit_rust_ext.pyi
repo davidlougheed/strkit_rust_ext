@@ -199,6 +199,7 @@ class STRkitAlignedSegment:
     query_qualities: NDArray[numpy.uint8]
     hp: Optional[int]
     ps: Optional[int]
+    ps_remapped: Optional[int]
 
     def soft_clip_overlaps_locus(self, locus: STRkitLocus) -> bool: ...
 
@@ -226,6 +227,8 @@ class STRkitLocusBlockSegments:
         self,
         locus: STRkitLocus,
     ) -> tuple[NDArray, int, NDArray[numpy.ulonglong], dict[str, int], int, int]: ...
+
+    def set_segment_ps_remapped(self, rn: str, ps_remapped: int): ...
 
 
 class STRkitBAMReader:
