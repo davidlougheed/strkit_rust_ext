@@ -228,7 +228,10 @@ impl STRkitAlignedSegment {
         // -------------------------------------------------------------------------------------------------------------
 
         let tr_qqs = self.query_qualities_.slice(s![left_flank_end..right_flank_start]).to_owned();
-        let mean_base_qual = tr_qqs.mean().map_or(None, |v| Some(v as f32));
+        // Built-in mean was panicking; DIY it
+        let mean_base_qual = if right_flank_start > left_flank_end + 1 {
+            Some(tr_qqs.iter().map(|&e| e as f32).sum::<f32>() / ((right_flank_start - left_flank_end) as f32))
+        } else { None };
 
         if let Some(mbq) = mean_base_qual {
             if mbq < min_avg_phred {
