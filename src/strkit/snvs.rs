@@ -108,12 +108,15 @@ pub struct STRkitVCFReader {
     reader: Mutex<bcf::IndexedReader>,
     contig_names: Vec<String>,
     contig_format: VCFContigFormat,
+    // If sample_idx is Some(...), then this is a sample VCF with sample at index <...>.
+    // Otherwise, this is not a sample VCF but merely a catalog.
+    sample_idx: Option<usize>,
 }
 
 #[pymethods]
 impl STRkitVCFReader {
     #[new]
-    fn py_new(path: &str) -> PyResult<Self> {
+    fn py_new(path: &str, is_sample_vcf: bool, sample_id: Option<String>) -> PyResult<Self> {
         let r = bcf::IndexedReader::from_path(path);
 
         if let Ok(rdr) = r {
@@ -132,10 +135,25 @@ impl STRkitVCFReader {
                 }
             }).collect();
 
+            let mut sample_idx: Option<usize> = None;
+
+            if is_sample_vcf {
+                sample_idx = if let Some(sample_id_str) = sample_id {
+                    header.sample_id(sample_id_str.as_bytes())
+                } else {
+                    Some(0)
+                };
+
+                if sample_idx.is_none() {
+                    // Still None --> couldn't find sample in header
+                    return Err(PyException::new_err("Could not find sample in sample VCF"));
+                }
+            }
+
             let contig_format = _get_vcf_contig_format(&contig_names);
 
             let reader = Mutex::new(rdr);
-            Ok(STRkitVCFReader { reader, contig_names, contig_format })
+            Ok(STRkitVCFReader { reader, contig_names, contig_format, sample_idx })
         } else {
             Err(PyErr::new::<PyValueError, _>(format!("Could not load VCF from path: {}", path)))
         }
