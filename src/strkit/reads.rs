@@ -19,7 +19,6 @@ use crate::locus::{STRkitLocus, STRkitLocusBlock, STRkitLocusWithRefData};
 use crate::utils::{normalize_contig, starts_with_chr, calculate_seq_with_wildcards, calc_motif_size_kmers};
 
 /// Locus-specific alignment data extracted from an aligned segment, possibly via realignment.
-#[derive(Clone)]
 #[pyclass(skip_from_py_object, frozen)]
 pub struct STRkitSegmentAlignmentDataForLocus {
     // Either cigar aligned coords from read, or realigned coords (which are locus-specific):
