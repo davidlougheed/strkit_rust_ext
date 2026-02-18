@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.10'
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: 1.88.0
@@ -44,7 +44,7 @@ jobs:
         with:
           rust-toolchain: 1.88.0
           target: ${{ matrix.target }}
-          args: --release --verbose --jobs 2 --out dist -i python3.12 -i python3.13 -i python3.14
+          args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 python3.12 -i python3.13 -i python3.14
           # sccache: 'true'
           manylinux: '2_28'
           # https://github.com/sfackler/rust-openssl/issues/2036#issuecomment-1724324145
@@ -113,7 +113,7 @@ jobs:
   #       with:
   #         rust-toolchain: 1.88.0
   #         target: ${{ matrix.target }}
-  #         args: --release --verbose --jobs 2 --out dist -i python3.12 -i python3.13 -i python3.14
+  #         args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13 -i python3.14
   #         # sccache: 'true'
   #         before-script-linux: |
   #           sudo apt-get update -y && sudo apt-get install -y g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64
@@ -193,7 +193,7 @@ jobs:
         with:
           rust-toolchain: 1.88.0
           target: ${{ matrix.target }}
-          args: --release --verbose --jobs 2 --out dist -i python3.12 -i python3.13 -i python3.14
+          args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13 -i python3.14
           # sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
