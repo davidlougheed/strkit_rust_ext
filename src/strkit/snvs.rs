@@ -532,7 +532,8 @@ pub fn calculate_useful_snvs(
         };
 
         let segment = block_segments.get_segment_by_name(rn_str)
-            .expect("Block segments should include all from read_dict_extra");
+            .expect("Block segments should include all from read_dict_extra")
+            .borrow(py);
 
         let qs = segment.query_sequence.as_bytes();
         let fqqs = segment.query_qualities_slice();
