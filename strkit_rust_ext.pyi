@@ -228,7 +228,7 @@ class STRkitLocusSegmentsIter:
 
 class STRkitLocusSegments:
     n_segments: int
-    read_lengths: NDArray[numpy.ulonglong]
+    sorted_read_lengths: NDArray[numpy.ulonglong]
     left_most_coord: int
     right_most_coord: int
 

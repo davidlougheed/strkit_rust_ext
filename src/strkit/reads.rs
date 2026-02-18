@@ -370,8 +370,10 @@ pub struct STRkitLocusSegments {
 #[pymethods]
 impl STRkitLocusSegments {
     #[getter]
-    fn read_lengths<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<usize>> {
-        self.read_lengths.to_pyarray(py)
+    fn sorted_read_lengths<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<usize>> {
+        let mut sorted_read_lengths = self.read_lengths.clone();
+        sorted_read_lengths.sort_unstable();
+        sorted_read_lengths.to_pyarray(py)
     }
 
     fn get_chimeric_read_status(&self, rn: &str) -> Option<u8> {
