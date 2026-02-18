@@ -70,7 +70,7 @@ CoordPair = tuple[Union[int, None], Union[int, None]]
 
 
 def get_aligned_pairs_from_cigar(
-    cigar: Iterable[tuple[int, int]],
+    cigar: Iterable[int],
     query_start: int = 0,
     ref_start: int = 0,
     matches_only: bool = False,
@@ -88,7 +88,7 @@ def get_aligned_pairs_from_cigar(
     di = itertools.count(start=ref_start)
     ops = CIGAR_OPS_MATCHES_ONLY if matches_only else CIGAR_OPS
 
-    return itertools.chain.from_iterable(map(lambda c: ops[c[0]](c[1], qi, di), cigar))
+    return itertools.chain.from_iterable(map(lambda c: ops[c[0]](c[1], qi, di), decode_cigar(cigar)))
 
 
 def _decode_cigar_item(item: int) -> tuple[int, int]:

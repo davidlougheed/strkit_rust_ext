@@ -16,4 +16,5 @@ SNV_CATALOG = [
     (1009, "snp1009", "C", ["A"]),
 ]
 
-CIGAR_OPS = np.array([[5, 50], [0, 560], [1, 50], [0, 2400], [1, 1]], dtype=np.uint32)
+# CIGAR_OPS = np.array([[5, 50], [0, 560], [1, 50], [0, 2400], [1, 1]], dtype=np.uint32)
+CIGAR_OPS = np.array([5 + (50 << 4), 0 + (560 << 4), 1 + (50 << 4), 0 + (2400 << 4), 1 + (1 << 4)], dtype=np.uint32)
