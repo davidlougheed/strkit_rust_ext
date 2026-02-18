@@ -194,7 +194,7 @@ impl STRkitAlignedSegment {
 impl STRkitAlignedSegment {
     #[getter]
     fn query_sequence_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u8>>> {
-        Ok(PyArray1::from_array(py, &Array1::from_iter(self.query_sequence.clone().as_bytes().iter().copied())))
+        Ok(PyArray1::from_array(py, &Array1::from_iter(self.query_sequence.as_bytes().iter().copied())))
     }
 
     #[getter]
