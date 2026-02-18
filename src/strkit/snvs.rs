@@ -29,7 +29,7 @@ pub struct UsefulSNVsParams {
 
 
 #[derive(Clone)] // TODO: rust: zero-copy when possible
-#[pyclass(frozen)]
+#[pyclass(skip_from_py_object, frozen)]
 pub struct CandidateSNV {
     id: String,
     ref_base: char,
@@ -584,7 +584,7 @@ pub fn calculate_useful_snvs(
             (base, qual)
         }).collect();
 
-        let read_dict_extra_for_read = read_dict_extra.get_item(&rn)?.unwrap().downcast_into::<PyDict>()?;
+        let read_dict_extra_for_read = read_dict_extra.get_item(&rn)?.unwrap().cast_into::<PyDict>()?;
 
         // TODO: set snv_bases as tuple
         read_dict_extra_for_read.set_item(intern!(py, "snv_bases"), snv_list)?;

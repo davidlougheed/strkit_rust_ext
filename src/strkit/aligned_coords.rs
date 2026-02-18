@@ -5,7 +5,7 @@ use pyo3::types::PyBytes;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Deserialize, Serialize)]
-#[pyclass(module = "strkit_rust_ext")]
+#[pyclass(from_py_object, module = "strkit_rust_ext")]
 pub struct STRkitAlignedCoords {
     #[pyo3(get)]
     pub query_coords: Vec<u64>,

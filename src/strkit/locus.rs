@@ -17,7 +17,7 @@ use super::snvs::UsefulSNVsParams;
 
 
 #[derive(Clone, Deserialize, Hash, Serialize)]
-#[pyclass(module = "strkit_rust_ext")]
+#[pyclass(from_py_object, module = "strkit_rust_ext")]
 pub struct STRkitLocus {
     #[pyo3(get)]
     pub t_idx: usize,
@@ -192,7 +192,7 @@ impl STRkitLocus {
 }
 
 #[derive(Clone)]
-#[pyclass(frozen)]
+#[pyclass(skip_from_py_object, frozen)]
 pub struct STRkitLocusWithRefData {
     #[pyo3(get)]
     pub locus_def: STRkitLocus,
@@ -255,7 +255,7 @@ impl STRkitLocusBlockIter {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-#[pyclass(module = "strkit_rust_ext")]
+#[pyclass(from_py_object, module = "strkit_rust_ext")]
 pub struct STRkitLocusBlock {
     pub loci: Vec<STRkitLocus>,
     pub left: u64, // Left-most coordinate of all loci
