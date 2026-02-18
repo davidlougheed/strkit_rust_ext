@@ -219,6 +219,22 @@ class STRkitAlignedSegment:
     ) -> str: ...
 
 
+class STRkitLocusSegmentsIter:
+    def __iter__(self) -> "STRkitLocusSegmentsIter": ...
+    def __next__(self) -> STRkitAlignedSegment: ...
+
+
+class STRkitLocusSegments:
+    n_segments: int
+    read_lengths: NDArray[numpy.ulonglong]
+    left_most_coord: int
+    right_most_coord: int
+
+    def __iter__(self) -> STRkitLocusSegmentsIter: ...
+
+    def get_chimeric_read_status(self, rn: str) -> int: ...
+
+
 class STRkitLocusBlockSegments:
     left_most_coord: int
     right_most_coord: int
@@ -226,7 +242,7 @@ class STRkitLocusBlockSegments:
     def get_segments_for_locus(
         self,
         locus: STRkitLocus,
-    ) -> tuple[NDArray, int, NDArray[numpy.ulonglong], dict[str, int], int, int]: ...
+    ) -> STRkitLocusSegments: ...
 
     def set_segment_ps_remapped(self, rn: str, ps_remapped: int): ...
 

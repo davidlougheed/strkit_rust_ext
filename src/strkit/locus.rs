@@ -482,7 +482,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     let candidate_snvs_b = candidate_snvs.borrow();
 
     for rn in read_dict_extra.keys().into_iter().map(|x| x.cast_into::<PyString>().unwrap()) {
-        let segment = block_segments.get_segment_by_name(rn.as_borrowed().to_str()?).unwrap();
+        let segment = block_segments.get_segment_by_name(rn.as_borrowed().to_str()?).unwrap().borrow(py);
 
         if segment.sig_clip_left || segment.sig_clip_right {
             logger.call_method1(
