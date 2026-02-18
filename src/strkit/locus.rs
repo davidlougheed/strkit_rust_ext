@@ -477,9 +477,11 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         entropy_threshold: 1.8,
     };
 
+    let twox_takein = significant_clip_snv_take_in * 2;
+
     let candidate_snvs_b = candidate_snvs.borrow();
 
-    for rn in read_dict_extra.keys().into_iter().map(|x| x.downcast_into::<PyString>().unwrap()) {
+    for rn in read_dict_extra.keys().into_iter().map(|x| x.cast_into::<PyString>().unwrap()) {
         let segment = block_segments.get_segment_by_name(rn.as_borrowed().to_str()?).unwrap();
 
         if segment.sig_clip_left || segment.sig_clip_right {
@@ -509,7 +511,6 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
         let aligned_coords = &segment_alignment_data_for_locus.aligned_coords;
         let coords_len = aligned_coords.query_coords.len();
 
-        let twox_takein = significant_clip_snv_take_in * 2;
         if coords_len < twox_takein {
             logger.call_method1(
                 intern!(py, "warning"),
