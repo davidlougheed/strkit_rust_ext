@@ -1,124 +1,18 @@
-use bio::alignment::pairwise::Scoring;
-use bio::alignment::poa::*;
+mod best_representatives;
+mod poa;
+
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedStr;
 use pyo3::types::PyString;
-use std::cmp;
 use std::collections::HashSet;
+// use std::io::BufWriter;
 use std::ops::Deref;
-use std::panic;
-use strsim::normalized_levenshtein;
 
-static GAP_CHAR_ORD: usize  = b'-' as usize;
+use best_representatives::best_representative;
+use poa::poa_consensus_seq;
 
 static BLANK_STR: &str = "";
-
-
-fn seqs_summed_levenshtein_similarity(seqs: &[&str]) -> Vec<f64> {
-    let n_seqs = seqs.len();
-    let mut similarity_memo: Vec<Option<f64>> = vec![None; n_seqs.pow(2)];
-    let mut ds = vec![0f64; n_seqs];
-
-    for i in 0..n_seqs {
-        for j in 0..n_seqs {
-            if i == j { continue; }
-            // diagonal 2d matrix into 1d matrix (vector) index:
-            let memo_idx = cmp::min(i, j) * n_seqs + cmp::max(i, j);
-            if let Some(d) = similarity_memo[memo_idx] {
-                // Distance already computed; use the cached value
-                ds[i] += d;
-            } else {
-                // Need to compute the distance
-                let d = normalized_levenshtein(seqs[i], seqs[j]);
-                similarity_memo[memo_idx] = Some(d);
-                ds[i] += d;
-            }
-        }
-    }
-
-    ds
-}
-
-fn best_representatives<'a>(seqs: &'a [&str]) -> HashSet<&'a str> {
-    let ds = seqs_summed_levenshtein_similarity(seqs);
-    let ms = ds.iter().max_by(|a, b| a.total_cmp(b));
-    ms.map(|max_score| {
-        ds.iter().enumerate().filter(|&(_, s)| s == max_score).map(|(i, _)| seqs[i]).collect()
-    }).unwrap_or(HashSet::new())
-}
-
-/// Best representative of a set of sequences:
-/// Slightly different from a true consensus - returns the string with the minimum Levenshtein distance to all other
-/// strings for a particular allele. This roughly approximates a true consensus when |seqs| is large. If more than one
-/// best representative exist, the first one is returned. If |best| == |seqs| or |best| == 0, None is returned since
-/// there is effectively no true consensus.
-fn best_representative<'a>(seqs: &'a [&str]) -> Option<&'a str> {
-    best_representatives(seqs).into_iter().next()
-}
-
-
-fn majority_consensus_from_msa(aligned_seqs: &[&[u8]], aligned_len: usize) -> String {
-    (0..aligned_len).filter_map(|i| {
-        let mut counter = [0usize; 256];
-        aligned_seqs.iter().for_each(|s| {
-            counter[s[i] as usize] += 1;
-        });
-
-        counter
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(cmp::Ordering::Equal))
-            .map(|(idx, _)| idx)
-            .and_then(|mode_idx| (mode_idx != 255 && mode_idx != GAP_CHAR_ORD).then_some(mode_idx as u8 as char))
-    }).collect::<String>()
-}
-
-
-fn poa_consensus_seq(seqs: &[&str]) -> Option<String> {
-    let n_seqs = seqs.len();
-
-    if n_seqs == 0 {
-        return None;
-    }
-
-    let _seqs: Vec<&[u8]> = seqs.iter().map(|s| s.as_bytes()).collect();
-
-    let first_seq = _seqs[0];
-
-    if n_seqs == 1 {
-        return Some(first_seq.iter().map(|&b| b as char).collect::<String>());
-    }
-
-    let scoring = Scoring::new(-1, 0, |a: u8, b: u8| if a == b { 1i32 } else { -1i32 });
-
-    panic::catch_unwind(|| {
-        let mut aligner = Aligner::new(scoring, first_seq);
-
-        let mut max_len: usize = first_seq.len();
-        _seqs[1..].iter().for_each(|y| {
-            max_len = cmp::max(max_len, y.len());
-            aligner.global(y).add_to_graph();
-        });
-
-        let pretty = aligner
-            .alignment()
-            .pretty(aligner.consensus().as_slice(), _seqs, aligner.graph(), max_len * 4);
-
-        let pretty_split = pretty.split('\n').skip(1);
-
-        let mut aligned_seqs: Vec<&[u8]> = Vec::with_capacity(n_seqs);
-        let mut max_aligned_len: usize = 0;
-
-        for s in pretty_split.into_iter().filter(|&z| !z.is_empty()) {
-            let s_seq: &[u8] = s.split('\t').nth(1).unwrap().as_bytes();
-            max_aligned_len = cmp::max(max_aligned_len, s_seq.len());
-            aligned_seqs.push(s_seq);
-        }
-
-        Some(majority_consensus_from_msa(&aligned_seqs, max_aligned_len))
-    }).ok()?
-}
 
 
 fn run_best_representatives<'py>(py: Python<'py>, seqs: &[&str], logger: Bound<'py, PyAny>) -> PyResult<Option<(String, &'py Bound<'py, PyString>)>> {
@@ -205,41 +99,5 @@ pub fn consensus_seq<'py>(
                 }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_seqs_summed_levenshtein_similarity() {
-        assert_eq!(seqs_summed_levenshtein_similarity(&vec!["A", "A", "A"]), vec![2.0, 2.0, 2.0]);
-        assert_eq!(seqs_summed_levenshtein_similarity(&vec!["AA", "AA", "AB"]), vec![1.5, 1.5, 1.0]);
-    }
-
-    #[test]
-    fn test_best_representatives() {
-        assert_eq!(best_representatives(&vec!["A", "A", "A"]), HashSet::from_iter(vec!["A"]));
-        assert_eq!(best_representatives(&vec!["B", "A", "A"]), HashSet::from_iter(vec!["A"]));
-        assert_eq!(best_representatives(&vec!["B", "A", "B"]), HashSet::from_iter(vec!["B"]));
-        assert_eq!(best_representatives(&vec!["", "A", "A"]), HashSet::from_iter(vec!["A"]));
-        assert_eq!(best_representatives(&vec!["A", "A", "B", "B"]), HashSet::from_iter(vec!["A", "B"]));
-    }
-
-    #[test]
-    fn test_best_representative() {
-        assert_eq!(best_representative(&vec![]), None);
-        assert_eq!(best_representative(&vec!["A", "A", "A"]), Some("A"));
-        assert_eq!(best_representative(&vec!["B", "A", "A"]), Some("A"));
-        assert_eq!(best_representative(&vec!["B", "A", "B"]), Some("B"));
-        assert_eq!(best_representative(&vec!["AA", "AB", "AA"]), Some("AA"));
-        assert_eq!(best_representative(&vec!["AAACAAA", "AACAAA", "AAACAA"]), Some("AAACAAA"));
-    }
-
-    #[test]
-    fn test_poa_consensus_seq() {
-        assert_eq!(poa_consensus_seq(&vec![]), None);
-        assert_eq!(poa_consensus_seq(&vec!["AA", "AB", "AA"]), Some(String::from("AA")));
     }
 }
