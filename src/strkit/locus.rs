@@ -49,6 +49,9 @@ pub struct STRkitLocus {
     #[pyo3(get)]
     pub flank_size: i32,
 
+    #[pyo3(get)]
+    pub annotations: Vec<String>,
+
     _log_str: String,
 }
 
@@ -64,6 +67,7 @@ impl STRkitLocus {
         motif: &str,
         n_alleles: usize,
         flank_size: i32,
+        annotations: Vec<String>,
     ) -> PyResult<Self> {
         let log_str = format!(
             "locus {} (id={}): {}:{}-{} [{}]", t_idx, locus_id, contig, left_coord, right_coord, motif
@@ -89,6 +93,8 @@ impl STRkitLocus {
 
                 flank_size,
 
+                annotations,
+
                 _log_str: log_str,
             }
         )
@@ -104,6 +110,7 @@ impl STRkitLocus {
         res.set_item("start", self.left_coord)?;
         res.set_item("end", self.right_coord)?;
         res.set_item("motif", self.motif.clone())?;
+        res.set_item("annotations", self.annotations.clone())?;
         Ok(res)
     }
 
@@ -177,7 +184,7 @@ impl STRkitLocus {
         Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 
-    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, i32, i32, String, usize, i32)> {
+    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, i32, i32, String, usize, i32, Vec<String>)> {
         Ok((
             self.t_idx,
             self.locus_id.clone(),
@@ -187,6 +194,7 @@ impl STRkitLocus {
             self.motif.clone(),
             self.n_alleles,
             self.flank_size,
+            self.annotations.clone(),
         ))
     }
 }

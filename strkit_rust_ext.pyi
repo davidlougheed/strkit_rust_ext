@@ -46,6 +46,8 @@ class STRkitLocus:
 
     flank_size: int
 
+    annotations: list[str]
+
     def __init__(
         self,
         t_idx: int,
@@ -56,6 +58,7 @@ class STRkitLocus:
         motif: str,
         n_alleles: int,
         flank_size: int,
+        annotations: list[str],
     ): ...
 
     def log_str(self) -> str: ...
