@@ -446,7 +446,7 @@ impl GetReadSNVs for STRkitAlignedSegment {
     ) -> HashMap<usize, (char, u8)> {
         // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
         // surrounded by a stretch of aligned bases of a specified size on either side.
-        // Returns a hash map of <position, base>
+        // Returns a hash map of <reference position, base>
 
         let qry_seq_bytes = self.query_sequence.as_bytes();
         let query_quals = self.query_qualities_slice();
