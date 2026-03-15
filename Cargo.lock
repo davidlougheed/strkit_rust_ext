@@ -1478,7 +1478,7 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 [[package]]
 name = "spoa_rs"
 version = "0.1.0"
-source = "git+https://github.com/AndreaGuarracino/spoa-rs.git?rev=a036c88#a036c882a952df9c3dccb4482e45f96b2e21e7fd"
+source = "git+https://github.com/davidlougheed/spoa-rs.git#300ef600ba2f4d57850ca15d9421cbcb2ddefc78"
 dependencies = [
  "cmake",
  "cxx",
