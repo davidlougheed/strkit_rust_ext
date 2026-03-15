@@ -18,7 +18,12 @@ class STRkitAlignedCoords:
 
 # consensus
 
-def consensus_seq(seqs: Sequence[str], logger: Logger, max_mdn_poa_length: int) -> Optional[tuple[str, Literal["single", "poa", "best_rep"]]]: ...
+def consensus_seq(
+    seqs: Sequence[str],
+    logger: Logger,
+    max_mdn_poa_length: int,
+    poa_impl: Literal["spoa", "rust-bio"],
+) -> Optional[tuple[str, Literal["single", "poa", "best_rep"]]]: ...
 
 # exceptions
 

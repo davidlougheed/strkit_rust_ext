@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::ops::Deref;
 
 use best_representatives::best_representative;
-use poa::poa_consensus_seq;
+use poa::{PoaImpl, poa_consensus_seq};
 
 static BLANK_STR: &str = "";
 
@@ -31,7 +31,11 @@ fn run_best_representatives<'py>(py: Python<'py>, seqs: &[&str], logger: Bound<'
 
 #[pyfunction]
 pub fn consensus_seq<'py>(
-    py: Python<'py>, seqs: Vec<PyBackedStr>, logger: Bound<'py, PyAny>, max_mdn_poa_length: usize
+    py: Python<'py>,
+    seqs: Vec<PyBackedStr>,
+    logger: Bound<'py, PyAny>,
+    max_mdn_poa_length: usize,
+    poa_impl: PyBackedStr,
 ) -> PyResult<Option<(String, &'py Bound<'py, PyString>)>> {
     let mut n_seqs = seqs.len();
 
@@ -88,7 +92,7 @@ pub fn consensus_seq<'py>(
                 return run_best_representatives(py, &sv, logger);
             }
 
-            match poa_consensus_seq(&sv) {
+            match poa_consensus_seq(&sv, if poa_impl == "spoa" { PoaImpl::Spoa } else { PoaImpl::RustBio }) {
                 Some(poa_c) => Ok(Some((poa_c, intern!(py, "poa")))),
                 None => {
                     logger.call_method1(
