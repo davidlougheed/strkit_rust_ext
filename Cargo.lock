@@ -1478,8 +1478,7 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 [[package]]
 name = "spoa_rs"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0a843ed9d5c133bd8d236ec1ccfc1b37455b901dc76698336b546e253239804"
+source = "git+https://github.com/AndreaGuarracino/spoa-rs.git?rev=a036c88#a036c882a952df9c3dccb4482e45f96b2e21e7fd"
 dependencies = [
  "cmake",
  "cxx",
