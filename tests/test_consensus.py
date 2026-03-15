@@ -24,4 +24,5 @@ test_params = [
 
 @pytest.mark.parametrize(("seqs", "res"), test_params)
 def test_consensus(seqs, res):
-    assert consensus_seq(seqs, logger, 100) == res
+    assert consensus_seq(seqs, logger, 100, "spoa") == res
+    assert consensus_seq(seqs, logger, 100, "rust-bio") == res
