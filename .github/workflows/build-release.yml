@@ -41,6 +41,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          CMAKE_CXX_FLAGS: "-march ${{matrix.target}}"
         with:
           rust-toolchain: 1.88.0
           target: ${{ matrix.target }}
@@ -82,7 +84,6 @@ jobs:
               export CC="$TARGET_CC"
               export AR="$TARGET_AR"
               export CXX="$TARGET_CXX"
-              export CXXFLAGS="-march=${{ matrix.target }}"
               export BINDGEN_EXTRA_CLANG_ARGS="--sysroot $TARGET_SYSROOT"
             else
               export CFLAGS="-Wno-error"
@@ -191,12 +192,12 @@ jobs:
       - uses: actions/checkout@v6
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          CMAKE_CXX_FLAGS: "-march ${{matrix.target}}"
         with:
           rust-toolchain: 1.88.0
           target: ${{ matrix.target }}
           args: --release --verbose --jobs 2 --out dist -i python3.10 -i python3.11 -i python3.12 -i python3.13 -i python3.14
-          before-script-linux: |
-            export CXXFLAGS="-march=${{ matrix.target }}"
           # sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
