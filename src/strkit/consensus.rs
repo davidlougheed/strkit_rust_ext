@@ -92,7 +92,7 @@ pub fn consensus_seq<'py>(
                 return run_best_representatives(py, &sv, logger);
             }
 
-            match poa_consensus_seq(&sv, if poa_impl == "spoa" { PoaImpl::Spoa } else { PoaImpl::RustBio }) {
+            match poa_consensus_seq(&sv, n_blanks, if poa_impl == "spoa" { PoaImpl::Spoa } else { PoaImpl::RustBio }) {
                 Some(poa_c) => Ok(Some((poa_c, intern!(py, "poa")))),
                 None => {
                     logger.call_method1(

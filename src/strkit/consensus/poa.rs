@@ -28,7 +28,7 @@ fn majority_consensus_from_msa(aligned_seqs: &[&[u8]], aligned_len: usize) -> St
     }).collect::<String>()
 }
 
-fn poa_consensus_seq_rust_bio(seqs: &[&str]) -> Option<String> {
+fn poa_consensus_seq_rust_bio(seqs: &[&str], n_blanks: usize) -> Option<String> {
     let n_seqs = seqs.len();
 
     if n_seqs == 0 {
@@ -69,11 +69,14 @@ fn poa_consensus_seq_rust_bio(seqs: &[&str]) -> Option<String> {
             aligned_seqs.push(s_seq);
         }
 
+        let blank = "-".repeat(max_aligned_len);
+        aligned_seqs.extend((0..n_blanks).map(|_| blank.as_bytes()));
+
         Some(majority_consensus_from_msa(&aligned_seqs, max_aligned_len))
     }).ok()?
 }
 
-fn poa_consensus_seq_spoa(seqs: &[&str]) -> Option<String> {
+fn poa_consensus_seq_spoa(seqs: &[&str], n_blanks: usize) -> Option<String> {
     if seqs.len() == 0 {
         return None;
     }
@@ -90,7 +93,10 @@ fn poa_consensus_seq_spoa(seqs: &[&str]) -> Option<String> {
         graph.add_alignment(alignment, seq);
     }
 
-    let msa = graph.generate_msa();
+    let mut msa = graph.generate_msa();
+    let aligned_len = msa[0].len();
+    msa.extend((0..n_blanks).map(|_| "-".repeat(aligned_len)));
+
     let msa_bytes: Vec<&[u8]> = msa.iter().map(|s| s.as_bytes()).collect();
     return Some(majority_consensus_from_msa(&msa_bytes, msa[0].len()));
 }
@@ -100,10 +106,10 @@ pub enum PoaImpl {
     Spoa,
 }
 
-pub fn poa_consensus_seq(seqs: &[&str], method: PoaImpl) -> Option<String> {
+pub fn poa_consensus_seq(seqs: &[&str], n_blanks: usize, method: PoaImpl) -> Option<String> {
     match method {
-        PoaImpl::RustBio => poa_consensus_seq_rust_bio(seqs),
-        PoaImpl::Spoa => poa_consensus_seq_spoa(seqs),
+        PoaImpl::RustBio => poa_consensus_seq_rust_bio(seqs, n_blanks),
+        PoaImpl::Spoa => poa_consensus_seq_spoa(seqs, n_blanks),
     }
 }
 
@@ -209,15 +215,17 @@ mod test {
 
     #[test]
     fn test_poa_consensus_seq_rust_bio() {
-        assert_eq!(poa_consensus_seq_rust_bio(&vec![]), None);
-        assert_eq!(poa_consensus_seq_rust_bio(&vec!["AA"]), Some(String::from("AA")));
-        assert_eq!(poa_consensus_seq_rust_bio(&vec!["AA", "AB", "AA"]), Some(String::from("AA")));
+        assert_eq!(poa_consensus_seq_rust_bio(&vec![], 0), None);
+        assert_eq!(poa_consensus_seq_rust_bio(&vec!["AA"], 0), Some(String::from("AA")));
+        assert_eq!(poa_consensus_seq_rust_bio(&vec!["AA", "AB", "AA"], 0), Some(String::from("AA")));
+        assert_eq!(poa_consensus_seq_rust_bio(&vec!["A", "AA"], 1), Some(String::from("A")));
     }
 
     #[test]
     fn test_poa_consensus_seq_spoa() {
-        assert_eq!(poa_consensus_seq_spoa(&vec![]), None);
-        assert_eq!(poa_consensus_seq_spoa(&vec!["AA"]), Some(String::from("AA")));
-        assert_eq!(poa_consensus_seq_spoa(&vec!["AA", "AB", "AA"]), Some(String::from("AA")));
+        assert_eq!(poa_consensus_seq_spoa(&vec![], 0), None);
+        assert_eq!(poa_consensus_seq_spoa(&vec!["AA"], 0), Some(String::from("AA")));
+        assert_eq!(poa_consensus_seq_spoa(&vec!["AA", "AB", "AA"], 0), Some(String::from("AA")));
+        assert_eq!(poa_consensus_seq_spoa(&vec!["A", "AA"], 1), Some(String::from("A")));
     }
 }
