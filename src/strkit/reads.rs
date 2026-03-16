@@ -531,6 +531,10 @@ pub struct STRkitBAMReader {
     debug_logs: bool,
 }
 
+fn htslib_error_to_pyerr(err: rust_htslib::errors::Error) -> PyErr {
+    PyErr::new::<PyException, _>(err.to_string())
+}
+
 #[pymethods]
 impl STRkitBAMReader {
     #[new]
@@ -546,37 +550,33 @@ impl STRkitBAMReader {
         logger: Bound<PyAny>,
         debug_logs: bool,
     ) -> PyResult<Self> {
-        let r = IndexedReader::from_path(path);
+        let mut rdr = IndexedReader::from_path(path)
+            .map_err(|_e| PyErr::new::<PyException, _>(format!("Could not load BAM from path: {}", path)))?;
 
-        if let Ok(mut rdr) = r {
-            rdr.set_reference(ref_path).unwrap();
+        rdr.set_reference(ref_path).map_err(htslib_error_to_pyerr)?;
+        // rdr.set_threads(4).map_err(htslib_error_to_pyerr)?; // TODO: parameterize
 
-            let contig_names: Vec<String> = {
-                let names = rdr.header().target_names();
-                names.into_iter().map(|n| String::from_utf8_lossy(n).to_string()).collect()
-            };
+        let contig_names: Vec<String> = {
+            let names = rdr.header().target_names();
+            names.into_iter().map(|n| String::from_utf8_lossy(n).to_string()).collect()
+        };
 
-            let any_contig_name_has_chr = contig_names.iter().any(|c| starts_with_chr(c));
+        let any_contig_name_has_chr = contig_names.iter().any(|c| starts_with_chr(c));
 
-            let reader = Mutex::new(rdr);
-
-            Ok(
-                STRkitBAMReader {
-                    reader,
-                    max_locus_reads,
-                    skip_supp,
-                    skip_sec,
-                    use_hp,
-                    significant_clip_threshold,
-                    contig_names,
-                    any_contig_name_has_chr,
-                    logger: logger.unbind().clone_ref(py),
-                    debug_logs,
-                }
-            )
-        } else {
-            Err(PyErr::new::<PyValueError, _>(format!("Could not load BAM from path: {}", path)))
-        }
+        Ok(
+            STRkitBAMReader {
+                reader: Mutex::new(rdr),
+                max_locus_reads,
+                skip_supp,
+                skip_sec,
+                use_hp,
+                significant_clip_threshold,
+                contig_names,
+                any_contig_name_has_chr,
+                logger: logger.unbind().clone_ref(py),
+                debug_logs,
+            }
+        )
     }
 
     fn get_overlapping_segments_and_related_data_for_block<'py>(
