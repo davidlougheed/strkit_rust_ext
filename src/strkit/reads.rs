@@ -433,7 +433,7 @@ impl STRkitLocusBlockSegments {
         let mut seen_reads: HashSet<String> = HashSet::new();
 
         // Fetch every segment (interval from the tree) which OVERLAPS [locus left flank coord, locus right flank coord]
-        for i in tree.find(loc.left_flank_coord as usize, loc.right_flank_coord as usize) {
+        for i in tree.find(loc.left_flank_coord as usize, (loc.right_flank_coord as usize) + 1) {
             let segment = self.segments[i.val].clone_ref(py);
 
             {
