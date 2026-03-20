@@ -135,7 +135,7 @@ class LocusReadCoords:
 def get_read_coords_from_matched_pairs(
     locus_with_ref_data: STRkitLocusWithRefData,
     segment: STRkitAlignedSegment,
-    aligned_coords: STRkitAlignedCoords,
+    aligned_coords: Optional[STRkitAlignedCoords],
     vcf_anchor_size: int,
     allow_only_one_full_flank: bool,
 ) -> LocusReadCoords: ...
