@@ -27,8 +27,8 @@ fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<locus::STRkitLocusWithRefData>()?;
     m.add_class::<locus::STRkitLocusBlockIter>()?;
     m.add_class::<locus::STRkitLocusBlock>()?;
+    m.add_class::<locus::LocusReadCoords>()?;
     m.add_function(wrap_pyfunction!(locus::get_read_coords_from_matched_pairs, m)?)?;
-    m.add_function(wrap_pyfunction!(locus::get_pairs_and_tr_read_coords, m)?)?;
     m.add_function(wrap_pyfunction!(locus::process_read_snvs_for_locus_and_calculate_useful_snvs, m)?)?;
 
     m.add_class::<reads::STRkitBAMReader>()?;

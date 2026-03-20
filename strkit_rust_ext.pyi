@@ -116,16 +116,29 @@ class STRkitLocusBlock:
     def __iter__(self): ...
 
 
+class LocusReadCoords:
+    left_flank_start: Optional[int]
+    left_flank_end: Optional[int]
+    right_flank_start: Optional[int]
+    right_flank_end: Optional[int]
+    full_left_flank: bool
+    full_right_flank: bool
+
+    @staticmethod
+    def new_all_incomplete() -> "LocusReadCoords": ...
+
+    def is_incomplete(self) -> bool: ...
+
+    def __repr__(self) -> str: ...
+
+
 def get_read_coords_from_matched_pairs(
     locus_with_ref_data: STRkitLocusWithRefData,
     segment: STRkitAlignedSegment,
     aligned_coords: STRkitAlignedCoords,
-) -> tuple[int, int, int, int]: ...
-
-def get_pairs_and_tr_read_coords(
-    locus_with_ref_data: STRkitLocusWithRefData,
-    segment: STRkitAlignedSegment,
-) -> tuple[Optional[STRkitAlignedCoords], int, int, int, int]: ...
+    vcf_anchor_size: int,
+    allow_only_one_full_flank: bool,
+) -> LocusReadCoords: ...
 
 def process_read_snvs_for_locus_and_calculate_useful_snvs(
     block_segments: STRkitLocusBlockSegments,
@@ -171,16 +184,12 @@ def get_aligned_pair_matches(
 # reads
 
 class STRkitSegmentAlignmentDataForLocus:
-    left_flank_end: int
     realigned: bool
 
     def __init__(
         self,
         aligned_coords: STRkitAlignedCoords,
-        left_flank_start: int,
-        left_flank_end: int,
-        right_flank_start: int,
-        right_flank_end: int,
+        locus_read_coords: LocusReadCoords,
         realigned: bool,
     ): ...
 
@@ -207,6 +216,7 @@ class STRkitAlignedSegment:
     is_reverse: bool
     query_sequence: str
     query_qualities: NDArray[numpy.uint8]
+    aligned_coords: STRkitAlignedCoords
     hp: Optional[int]
     ps: Optional[int]
     ps_remapped: Optional[int]

@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use crate::aligned_coords::{AlignedCoordsMethods, STRkitAlignedCoords};
 use crate::cigar::{decode_cigar_item, get_aligned_pair_matches_rs};
 use crate::exceptions::LowMeanBaseQual;
-use crate::locus::{STRkitLocus, STRkitLocusBlock, STRkitLocusWithRefData};
+use crate::locus::{LocusReadCoords, STRkitLocus, STRkitLocusBlock, STRkitLocusWithRefData};
 use crate::utils::{normalize_contig, starts_with_chr, calculate_seq_with_wildcards, calc_motif_size_kmers};
 
 /// Locus-specific alignment data extracted from an aligned segment, possibly via realignment.
@@ -24,11 +24,7 @@ pub struct STRkitSegmentAlignmentDataForLocus {
     // Either cigar aligned coords from read, or realigned coords (which are locus-specific):
     pub aligned_coords: STRkitAlignedCoords,
     // ---
-    pub left_flank_start: usize,
-    #[pyo3(get)]
-    pub left_flank_end: usize,
-    pub right_flank_start: usize,
-    pub right_flank_end: usize,
+    pub locus_read_coords: Py<LocusReadCoords>,
     // ---
     #[pyo3(get)]
     pub realigned: bool,
@@ -49,18 +45,12 @@ impl STRkitSegmentAlignmentDataForLocus {
     #[new]
     fn py_new(
         aligned_coords: STRkitAlignedCoords,
-        left_flank_start: usize,
-        left_flank_end: usize,
-        right_flank_start: usize,
-        right_flank_end: usize,
+        locus_read_coords: Py<LocusReadCoords>,
         realigned: bool,
     ) -> PyResult<Self> {
         Ok(STRkitSegmentAlignmentDataForLocus {
             aligned_coords,
-            left_flank_start,
-            left_flank_end,
-            right_flank_start,
-            right_flank_end,
+            locus_read_coords,
             realigned,
         })
     }
@@ -192,6 +182,12 @@ impl STRkitAlignedSegment {
 #[pymethods]
 impl STRkitAlignedSegment {
     #[getter]
+    fn aligned_coords<'py>(&mut self) -> PyResult<Option<STRkitAlignedCoords>> {
+        self.cache_cigar_aligned_coords();
+        Ok(self.cigar_aligned_coords.clone()) // TODO: no clone with Py shared ptr?
+    }
+
+    #[getter]
     fn query_sequence_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<u8>>> {
         Ok(PyArray1::from_array(py, &Array1::from_iter(self.query_sequence.as_bytes().iter().copied())))
     }
@@ -219,10 +215,11 @@ impl STRkitAlignedSegment {
         min_avg_phred: f32,
         base_wildcard_threshold: u8,
     ) -> PyResult<STRkitAlignedSegmentSequenceDataForLocus> {
-        let left_flank_start = segment_alignment_data_for_locus.left_flank_start;
-        let left_flank_end = segment_alignment_data_for_locus.left_flank_end;
-        let right_flank_start = segment_alignment_data_for_locus.right_flank_start;
-        let right_flank_end = segment_alignment_data_for_locus.right_flank_end;
+        let lrc = segment_alignment_data_for_locus.locus_read_coords.borrow(py);
+        let left_flank_start = lrc.left_flank_start.ok_or(PyErr::new::<PyException, _>("missing left_flank_start"))?;
+        let left_flank_end = lrc.left_flank_end.ok_or(PyErr::new::<PyException, _>("missing left_flank_end"))?;
+        let right_flank_start = lrc.right_flank_start.ok_or(PyErr::new::<PyException, _>("missing right_flank_start"))?;
+        let right_flank_end = lrc.right_flank_end.ok_or(PyErr::new::<PyException, _>("missing right_flank_end"))?;
 
         // -------------------------------------------------------------------------------------------------------------
 
@@ -297,18 +294,20 @@ impl STRkitAlignedSegment {
         )
     }
 
-    fn get_vcf_anchor_for_locus(
+    pub fn get_vcf_anchor_for_locus(
         &self,
+        py: Python<'_>,
         locus_with_ref_data: &STRkitLocusWithRefData,
         segment_alignment_data_for_locus: &STRkitSegmentAlignmentDataForLocus,
         vcf_anchor_size: usize,
-    ) -> String {
+    ) -> PyResult<String> {
         // calculates a VCF sequence start 'anchor' for this particular read. a consensus of the read anchors will
         // determine the allele anchor, which is a bit of a hack.
 
         // it would be nice to do this with the coord pairs instead - but we don't have a great way then of finding a
         // coord that works for both the ref and every read without doing another iteration.
-        let end = segment_alignment_data_for_locus.left_flank_end;
+        let lrc = segment_alignment_data_for_locus.locus_read_coords.borrow(py);
+        let end = lrc.left_flank_end.ok_or(PyErr::new::<PyException, _>("missing left_flank_end"))?;
         for anchor_offset in (1..vcf_anchor_size+1).rev() {
             // start from largest - want to include small indels in query if they appear immediately upstream
             let (anchor_pair_idx, anchor_pair_found) = segment_alignment_data_for_locus.find_coord_idx_by_ref_pos(
@@ -316,13 +315,13 @@ impl STRkitAlignedSegment {
             );
             if anchor_pair_found {
                 let start = segment_alignment_data_for_locus.query_coord_at_idx(anchor_pair_idx) as usize;
-                return self.query_sequence[start..end].to_string();
+                return Ok(self.query_sequence[start..end].to_string());
             }
             // otherwise, there's an indel in ref - so we shrink the anchor size
         }
 
         // if nothing worked, leave as blank - anchor base deleted
-        String::new()
+        Ok(String::new())
     }
 }
 

@@ -28,15 +28,15 @@ pub struct STRkitLocus {
     pub contig: String,
 
     #[pyo3(get)]
-    pub left_coord: i32,
+    pub left_coord: usize,
     #[pyo3(get)]
-    pub left_flank_coord: i32,
+    pub left_flank_coord: usize,
     #[pyo3(get)]
-    pub right_coord: i32,
+    pub right_coord: usize,
     #[pyo3(get)]
-    pub right_flank_coord: i32,
+    pub right_flank_coord: usize,
     #[pyo3(get)]
-    pub ref_size: i32, // reference size, in terms of coordinates
+    pub ref_size: usize, // reference size, in terms of coordinates
 
     #[pyo3(get)]
     pub motif: String,
@@ -47,7 +47,7 @@ pub struct STRkitLocus {
     pub n_alleles: usize,
 
     #[pyo3(get)]
-    pub flank_size: i32,
+    pub flank_size: usize,
 
     #[pyo3(get)]
     pub annotations: Vec<String>,
@@ -62,11 +62,11 @@ impl STRkitLocus {
         t_idx: usize,
         locus_id: &str,
         contig: &str,
-        left_coord: i32,
-        right_coord: i32,
+        left_coord: usize,
+        right_coord: usize,
         motif: &str,
         n_alleles: usize,
-        flank_size: i32,
+        flank_size: usize,
         annotations: Vec<String>,
     ) -> PyResult<Self> {
         let log_str = format!(
@@ -144,8 +144,8 @@ impl STRkitLocus {
 
     fn with_ref_data(
         &self,
-        left_coord_adj: i32,
-        right_coord_adj: i32,
+        left_coord_adj: usize,
+        right_coord_adj: usize,
         ref_contig: String,
         ref_cn: i32,
         ref_seq: String,
@@ -184,7 +184,7 @@ impl STRkitLocus {
         Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 
-    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, i32, i32, String, usize, i32, Vec<String>)> {
+    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, usize, usize, String, usize, usize, Vec<String>)> {
         Ok((
             self.t_idx,
             self.locus_id.clone(),
@@ -206,9 +206,9 @@ pub struct STRkitLocusWithRefData {
     pub locus_def: STRkitLocus,
 
     #[pyo3(get)]
-    pub left_coord_adj: i32,
+    pub left_coord_adj: usize,
     #[pyo3(get)]
-    pub right_coord_adj: i32,
+    pub right_coord_adj: usize,
 
     #[pyo3(get)]
     pub ref_contig: String,
@@ -231,12 +231,12 @@ pub struct STRkitLocusWithRefData {
 #[pymethods]
 impl STRkitLocusWithRefData {
     #[getter]
-    fn left_flank_coord(&self) -> i32 {
+    fn left_flank_coord(&self) -> usize {
         self.locus_def.left_flank_coord
     }
 
     #[getter]
-    fn right_flank_coord(&self) -> i32 {
+    fn right_flank_coord(&self) -> usize {
         self.locus_def.right_flank_coord
     }
 
@@ -316,66 +316,135 @@ impl STRkitLocusBlock {
 }
 
 
+#[pyclass]
+pub struct LocusReadCoords {
+    #[pyo3(get)]
+    pub left_flank_start: Option<usize>,
+    #[pyo3(get)]
+    pub left_flank_end: Option<usize>,
+    #[pyo3(get)]
+    pub right_flank_start: Option<usize>,
+    #[pyo3(get)]
+    pub right_flank_end: Option<usize>,
+    #[pyo3(get)]
+    pub full_left_flank: bool,
+    #[pyo3(get)]
+    pub full_right_flank: bool,
+}
+
+#[pymethods]
+impl LocusReadCoords {
+    #[staticmethod]
+    pub fn new_all_incomplete() -> Self {
+        return LocusReadCoords {
+            left_flank_start: None,
+            left_flank_end: None,
+            right_flank_start: None,
+            right_flank_end: None,
+            full_left_flank: false,
+            full_right_flank: false,
+        };
+    }
+
+    pub fn is_incomplete(&self) -> bool {
+        return self.left_flank_start.is_none()
+            || self.left_flank_end.is_none()
+            || self.right_flank_start.is_none()
+            || self.right_flank_end.is_none();
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!(
+            "<LocusReadCoords {:?} {:?} {:?} {:?} {} {}>",
+            self.left_flank_start,
+            self.left_flank_end,
+            self.right_flank_start,
+            self.right_flank_end,
+            self.full_left_flank,
+            self.full_right_flank,
+        )
+    }
+}
+
+
+/// Given some locus definition + reference data, a read query sequence, and a set of aligned coordinates between the
+/// query and the reference, we want to find the query coordinates that encompass the locus + the flanking region.
+/// To do this, we need to examine the aligned coordinates and use the locus definition to find flank/TR boundaries.
+///
+/// The aligned coordinates will be either from the original algined read (query) directly or a realignment of the read.
+///
+/// If allow_only_one_full_flank is set to True, we only require one full flanking sequence rather than both. This can
+/// help recover reads, which is especially valuable for expansion discovery and/or at low coverage levels.
 fn _get_read_coords_from_matched_pairs(
     locus_with_ref_data: &STRkitLocusWithRefData,
     query_seq: &str,
     aligned_coords: &STRkitAlignedCoords,
-) -> (i32, i32, i32, i32) {
+    vcf_anchor_size: usize,
+    allow_only_one_full_flank: bool,
+) -> LocusReadCoords {
     // Skip gaps on either side to find mapped flank indices
 
     // Binary search for left flank start ------------------------------------------------------------------------------
 
-    let (mut lhs, found) = aligned_coords.find_coord_idx_by_ref_pos(
+    let (mut lhs, mut full_left_flank) = aligned_coords.find_coord_idx_by_ref_pos(
         locus_with_ref_data.locus_def.left_flank_coord as usize, 0
     );
 
-    // lhs now contains the index for the closest starting coordinate to left_flank_coord
+    // lhs now contains the index for the closest starting coordinate to left_flank_coord (or is out-of-bounds)
 
-    if !found && (lhs == 0 || lhs == aligned_coords.ref_coords.len()) {
-        // Completely out of bounds; either right at the start or inserting after the end
-        return (-1, -1, -1, -1);
+    if !full_left_flank {
+        if lhs == 0 || lhs == aligned_coords.ref_coords.len() {
+            if !allow_only_one_full_flank {
+                // Completely out of bounds (either right at the start or inserting after the end) and we require both
+                // flanking sequences in their entirety.
+                return LocusReadCoords::new_all_incomplete();
+            }
+        } else {
+            // Choose pair to the left of where we'd insert the pair to maintain sorted order, since we want the closest
+            // starting coordinate to left_flank_coord which gives us enough flanking material. This won't be the same
+            // as the original target coordinate, but it'll encompass a full flank worth of sequence.
+            lhs -= 1;
+            full_left_flank = true;
+        }
     }
 
-    if !found {
-        // Choose pair to the left of where we'd insert the pair to maintain sorted order, since we want the closest
-        // starting coordinate to left_flank_coord which gives us enough flanking material.
-        lhs -= 1;
-    }
-
-    let left_flank_start: i32 = aligned_coords.query_coords[lhs] as i32;
+    // If we're allowed to have a partial flank on one side, we can keep going even if we don't have the full left
+    // flank. In that case, we will require a full right flank later on.
+    let mut left_flank_start: usize = if full_left_flank { aligned_coords.query_coords[lhs] as usize } else { 0 };
 
     // -----------------------------------------------------------------------------------------------------------------
 
     // Binary search for left flank end (may "fail" if we don't have a pair for left_coord - 1 (i.e., there's a gap in
     // the reference to the direct left of left_coord), in which case we can do it the slow way in O(n) time).
 
-    let mut left_flank_end: i32 = -1;
+    let mut left_flank_end: Option<usize> = None;
 
-    let mut loop_start = lhs + 1;
+    let mut loop_start = if full_left_flank { lhs + 1 } else { 0 };
 
     let (lhs_end, lhs_end_found) = aligned_coords.find_coord_idx_by_ref_pos(
-        (locus_with_ref_data.left_coord_adj - 1) as usize,
+        locus_with_ref_data.left_coord_adj - 1,
         loop_start,
     );
     if lhs_end_found {
-        left_flank_end = aligned_coords.query_coords[lhs_end] as i32 + 1;
+        left_flank_end = Some(aligned_coords.query_coords[lhs_end] as usize + 1);
         loop_start = lhs_end + 1;
     } else {
         // eprintln!("lhs_end q_coord={}, found={}", q_coords[lhs_end] + 1, lhs_end_found);
     }
 
-    // Binary search for right flank end -------------------------------------------------------------------------------
+    // Linear search for left flank end (if not found via binary search) and right flank start/end ---------------------
 
-    let motif_size = locus_with_ref_data.locus_def.motif_size as i32;
+    let motif_size = locus_with_ref_data.locus_def.motif_size;
 
-    let mut right_flank_start: i32 = -1;
-    let mut right_flank_end: i32 = -1;
+    let mut right_flank_start: Option<usize> = None;
+    let mut right_flank_end: Option<usize> = None;
+    let mut full_right_flank = false;
 
-    let mut last_idx: i32 = -1;
+    let mut last_idx: usize = 0;
 
     for i in loop_start..aligned_coords.query_coords.len() {
-        let query_coord = aligned_coords.query_coords[i] as i32;
-        let ref_coord = aligned_coords.ref_coords[i] as i32;
+        let query_coord = aligned_coords.query_coords[i] as usize;
+        let ref_coord = aligned_coords.ref_coords[i] as usize;
 
         // Skip gaps on either side to find mapped flank indices
 
@@ -383,27 +452,46 @@ fn _get_read_coords_from_matched_pairs(
             // Coordinate here is exclusive - we don't want to include a gap between the flanking region and
             // the STR; if we include the left-most base of the STR, we will have a giant flanking region which
             // will include part of the tandem repeat itself.
-            left_flank_end = query_coord + 1; // Add 1 to make it exclusive
+            let lfe = query_coord as usize + 1; // Add 1 to make it exclusive
+
+            // Even if we're allowed to have a small flank (allow_only_one_full_flank), we still require a flanking
+            // region large enough to anchor the sequence in the VCF output.
+            if lfe - left_flank_start < vcf_anchor_size {
+                return LocusReadCoords::new_all_incomplete();
+            }
+
+            left_flank_end = Some(lfe);
         } else if ref_coord >= locus_with_ref_data.right_coord_adj
             && (
                 // Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
                 // in it right after we finished due to a subtle mis-alignment - this can be seen in the HTT alignments
                 // in bc1018
                 // TODO: do the same thing for the left side
-                right_flank_start == -1
-                    || (query_coord - last_idx >= motif_size
+                right_flank_start.is_none()
+                    || (last_idx > 0
+                        && query_coord - last_idx >= motif_size
                         && (ref_coord - locus_with_ref_data.right_coord_adj <= motif_size * 2)
-                        && (query_seq[(last_idx as usize)..(query_coord as usize)]
+                        && (query_seq[(last_idx as usize)..query_coord]
                             .matches(&locus_with_ref_data.locus_def.motif)
                             .count() as f64
                             / ((query_coord - last_idx) / motif_size) as f64)
                             >= 0.5)
             )
         {
-            right_flank_start = query_coord;
-        } else if ref_coord >= locus_with_ref_data.locus_def.right_flank_coord {
-            right_flank_end = query_coord;
-            break;
+            if left_flank_end.is_none() {
+                // no left flank at all, early return error
+                // TODO: in future: partial supporting read instead
+                return LocusReadCoords::new_all_incomplete();
+            }
+            right_flank_start = Some(query_coord);
+        } else if ref_coord >= locus_with_ref_data.locus_def.right_flank_coord || (
+            allow_only_one_full_flank && full_left_flank && !right_flank_start.is_none()
+        ) {
+            right_flank_end = Some(query_coord);
+            if ref_coord >= locus_with_ref_data.locus_def.right_flank_coord {
+                full_right_flank = true;
+                break;
+            }
         }
 
         last_idx = query_coord;
@@ -411,42 +499,52 @@ fn _get_read_coords_from_matched_pairs(
 
     // -----------------------------------------------------------------------------------------------------------------
 
-    (left_flank_start, left_flank_end, right_flank_start, right_flank_end)
+    // Truncate to flank_size (plus some leeway for small indels in flanking region) to stop relatively distant
+    // expansion sequences from accidentally being included in the flanking region; e.g. if the insert gets mapped
+    // onto bases outside the definition coordinates.  TODO: better to do something else here?
+    // The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
+    // contain a correctly-sized sequence.
+
+    let flank_size = locus_with_ref_data.locus_def.flank_size;
+    if let Some(lfe) = left_flank_end && lfe > flank_size + 10 && (left_flank_start < lfe - flank_size - 10) {
+        left_flank_start = lfe - flank_size - 10;
+    }
+    if let Some(rfs) = right_flank_start && let Some(rfe) = right_flank_end && (rfe > rfs + flank_size + 10) {
+        right_flank_end = Some(rfs + flank_size + 10);
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------
+
+    LocusReadCoords {
+        left_flank_start: Some(left_flank_start),
+        left_flank_end,
+        right_flank_start,
+        right_flank_end,
+        full_left_flank,
+        full_right_flank,
+    }
 }
 
 #[pyfunction]
 pub fn get_read_coords_from_matched_pairs(
+    py: Python<'_>,
     locus_with_ref_data: &STRkitLocusWithRefData,
-    segment: &STRkitAlignedSegment,
-    aligned_coords: &STRkitAlignedCoords,
-) -> (i32, i32, i32, i32) {
-    _get_read_coords_from_matched_pairs(locus_with_ref_data, &segment.query_sequence, aligned_coords)
-}
-
-#[pyfunction]
-pub fn get_pairs_and_tr_read_coords<'py>(
-    py: Python<'py>,
-    locus_with_ref_data: &Bound<'py, STRkitLocusWithRefData>,
     segment: &mut STRkitAlignedSegment,
-) -> PyResult<(Option<Py<STRkitAlignedCoords>>, i32, i32, i32, i32)> {
-    segment.cache_cigar_aligned_coords();
-    let aligned_coords = segment.cigar_aligned_coords.clone().expect("should have cigar_aligned_coords");
-
-    let (left_flank_start, left_flank_end, right_flank_start, right_flank_end) =
-        _get_read_coords_from_matched_pairs(&locus_with_ref_data.borrow(), &segment.query_sequence, &aligned_coords);
-
-    if left_flank_start == -1 || left_flank_end == -1 || right_flank_start == -1 || right_flank_end == -1 {
-        // Avoid converting to Python objects / passing over Python-Rust boundary, return a None instead
-        Ok((None, left_flank_start, left_flank_end, right_flank_start, right_flank_end))
-    } else {
-        Ok((
-            Some(Py::new(py, aligned_coords)?),
-            left_flank_start,
-            left_flank_end,
-            right_flank_start,
-            right_flank_end,
-        ))
+    aligned_coords: Option<STRkitAlignedCoords>,
+    vcf_anchor_size: usize,
+    allow_only_one_full_flank: bool,
+) -> PyResult<Py<LocusReadCoords>> {
+    if aligned_coords.is_none() {
+        segment.cache_cigar_aligned_coords();
     }
+
+    let ac = aligned_coords.as_ref()
+        .or(segment.cigar_aligned_coords.as_ref())
+        .expect("should have aligned coordinates from function or segment");
+
+    Py::new(py, _get_read_coords_from_matched_pairs(
+        locus_with_ref_data, &segment.query_sequence, ac, vcf_anchor_size, allow_only_one_full_flank
+    ))
 }
 
 #[pyfunction]
