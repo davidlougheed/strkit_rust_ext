@@ -35,6 +35,9 @@ impl AlignedCoordsMethods for STRkitSegmentAlignmentDataForLocus {
     fn query_coord_at_idx(&self, idx: usize) -> u64 {
         self.aligned_coords.query_coord_at_idx(idx)
     }
+    fn ref_coord_at_idx(&self, idx: usize) -> u64 {
+        self.aligned_coords.ref_coord_at_idx(idx)
+    }
     fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
         self.aligned_coords.find_coord_idx_by_ref_pos(target, start_left)
     }
