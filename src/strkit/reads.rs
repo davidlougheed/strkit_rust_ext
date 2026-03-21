@@ -12,7 +12,7 @@ use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::aligned_coords::{AlignedCoordsMethods, STRkitAlignedCoords};
+use crate::aligned_coords::STRkitAlignedCoords;
 use crate::cigar::{decode_cigar_item, get_aligned_pair_matches_rs};
 use crate::exceptions::LowMeanBaseQual;
 use crate::locus::{LocusReadCoords, STRkitLocus, STRkitLocusBlock, STRkitLocusWithRefData};
@@ -22,7 +22,7 @@ use crate::utils::{normalize_contig, starts_with_chr, calculate_seq_with_wildcar
 #[pyclass(skip_from_py_object, frozen)]
 pub struct STRkitSegmentAlignmentDataForLocus {
     // Either cigar aligned coords from read, or realigned coords (which are locus-specific):
-    pub aligned_coords: STRkitAlignedCoords,
+    pub aligned_coords: Py<STRkitAlignedCoords>,
     // ---
     pub locus_read_coords: Py<LocusReadCoords>,
     // ---
@@ -30,24 +30,11 @@ pub struct STRkitSegmentAlignmentDataForLocus {
     pub realigned: bool,
 }
 
-// TODO: remove this struct with future Rust porting in favour of just accessing .aligned_coords
-impl AlignedCoordsMethods for STRkitSegmentAlignmentDataForLocus {
-    fn query_coord_at_idx(&self, idx: usize) -> u64 {
-        self.aligned_coords.query_coord_at_idx(idx)
-    }
-    fn ref_coord_at_idx(&self, idx: usize) -> u64 {
-        self.aligned_coords.ref_coord_at_idx(idx)
-    }
-    fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
-        self.aligned_coords.find_coord_idx_by_ref_pos(target, start_left)
-    }
-}
-
 #[pymethods]
 impl STRkitSegmentAlignmentDataForLocus {
     #[new]
     fn py_new(
-        aligned_coords: STRkitAlignedCoords,
+        aligned_coords: Py<STRkitAlignedCoords>,
         locus_read_coords: Py<LocusReadCoords>,
         realigned: bool,
     ) -> PyResult<Self> {
@@ -58,12 +45,18 @@ impl STRkitSegmentAlignmentDataForLocus {
         })
     }
 
-    pub fn query_coord_at_idx(&self, idx: usize) -> u64 {
-        AlignedCoordsMethods::query_coord_at_idx(self, idx)
+    // TODO: remove this with future Rust porting in favour of just accessing .aligned_coords
+
+    pub fn query_coord_at_idx(&self, py: Python<'_>, idx: usize) -> u64 {
+        self.aligned_coords.borrow(py).query_coord_at_idx(idx)
     }
 
-    pub fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
-        AlignedCoordsMethods::find_coord_idx_by_ref_pos(self, target, start_left)
+    pub fn ref_coord_at_idx(&self, py: Python<'_>, idx: usize) -> u64 {
+        self.aligned_coords.borrow(py).ref_coord_at_idx(idx)
+    }
+
+    pub fn find_coord_idx_by_ref_pos(&self, py: Python<'_>, target: usize, start_left: usize) -> (usize, bool) {
+        self.aligned_coords.borrow(py).find_coord_idx_by_ref_pos(target, start_left)
     }
 }
 
@@ -132,7 +125,7 @@ pub struct STRkitAlignedSegment {
     pub query_sequence: String,
     pub query_qualities_: Array1<u8>,
     pub raw_cigar: Array1<u32>,
-    pub cigar_aligned_coords: Option<STRkitAlignedCoords>,
+    pub cigar_aligned_coords: Option<Py<STRkitAlignedCoords>>,
     cigar_first_op: u32, // first grabbed for significant clipping check, later used for soft clip overlap calc.
     cigar_first_len: u64,
     cigar_last_op: u32,  // idem
@@ -171,23 +164,26 @@ impl STRkitAlignedSegment {
         self.query_qualities_.as_slice().unwrap()
     }
 
-    pub fn cache_cigar_aligned_coords(&mut self) {
+    pub fn cache_cigar_aligned_coords(&mut self, py: Python<'_>) -> PyResult<()> {
         match self.cigar_aligned_coords {
             Some(_) => (), // Already cached
             None => {
                 let nac = get_aligned_pair_matches_rs(self.raw_cigar.view(), 0, self.start);
-                self.cigar_aligned_coords = Some(nac);
+                let nac_py = Py::new(py, nac)?;
+                self.cigar_aligned_coords = Some(nac_py);
             },
-        }
+        };
+        Ok(())
     }
 }
 
 #[pymethods]
 impl STRkitAlignedSegment {
     #[getter]
-    fn aligned_coords<'py>(&mut self) -> PyResult<Option<STRkitAlignedCoords>> {
-        self.cache_cigar_aligned_coords();
-        Ok(self.cigar_aligned_coords.clone()) // TODO: no clone with Py shared ptr?
+    fn aligned_coords<'py>(&mut self, py: Python<'py>) -> PyResult<Py<STRkitAlignedCoords>> {
+        self.cache_cigar_aligned_coords(py)?;
+        let ac = self.cigar_aligned_coords.as_ref().expect("should have aligned coords");
+        Ok(ac.clone_ref(py)) // TODO: no clone with Py shared ptr?
     }
 
     #[getter]
@@ -314,10 +310,10 @@ impl STRkitAlignedSegment {
         for anchor_offset in (1..vcf_anchor_size+1).rev() {
             // start from largest - want to include small indels in query if they appear immediately upstream
             let (anchor_pair_idx, anchor_pair_found) = segment_alignment_data_for_locus.find_coord_idx_by_ref_pos(
-                locus_with_ref_data.left_coord_adj as usize - anchor_offset, 0
+                py, locus_with_ref_data.left_coord_adj as usize - anchor_offset, 0
             );
             if anchor_pair_found {
-                let start = segment_alignment_data_for_locus.query_coord_at_idx(anchor_pair_idx) as usize;
+                let start = segment_alignment_data_for_locus.query_coord_at_idx(py, anchor_pair_idx) as usize;
                 return Ok(self.query_sequence[start..end].to_string());
             }
             // otherwise, there's an indel in ref - so we shrink the anchor size

@@ -544,7 +544,7 @@ pub fn calculate_useful_snvs(
                 .unwrap()
                 .cast_into::<STRkitSegmentAlignmentDataForLocus>()?
                 .borrow();
-        let aligned_coords = &segment_alignment_data_for_locus.aligned_coords;
+        let aligned_coords = &segment_alignment_data_for_locus.aligned_coords.borrow(py);
 
         let segment_start = segment.start as usize;
         let segment_end = segment.end as usize;

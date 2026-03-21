@@ -4,36 +4,13 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Deserialize, Serialize)]
-#[pyclass(from_py_object, module = "strkit_rust_ext")]
+#[derive(Deserialize, Serialize)]
+#[pyclass(module = "strkit_rust_ext")]
 pub struct STRkitAlignedCoords {
     #[pyo3(get)]
     pub query_coords: Vec<u64>,
     #[pyo3(get)]
     pub ref_coords: Vec<u64>,
-}
-
-pub trait AlignedCoordsMethods {
-    fn query_coord_at_idx(&self, idx: usize) -> u64;
-    fn ref_coord_at_idx(&self, idx: usize) -> u64;
-    fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool);
-}
-
-impl AlignedCoordsMethods for STRkitAlignedCoords {
-    fn query_coord_at_idx(&self, idx: usize) -> u64 {
-        self.query_coords[idx]
-    }
-
-    fn ref_coord_at_idx(&self, idx: usize) -> u64 {
-        self.ref_coords[idx]
-    }
-
-    fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
-        let t = target as u64;
-        let idx = start_left + self.ref_coords[start_left..].partition_point(|&x| x < t);
-        let found = idx < self.ref_coords.len() && self.ref_coords[idx] == t;
-        (idx, found)
-    }
 }
 
 #[pymethods]
@@ -49,16 +26,23 @@ impl STRkitAlignedCoords {
         )
     }
 
-    fn query_coord_at_idx(&self, idx: usize) -> u64 {
-        AlignedCoordsMethods::query_coord_at_idx(self, idx)
+    pub fn query_coord_at_idx(&self, idx: usize) -> u64 {
+        self.query_coords[idx]
+    }
+
+    pub fn ref_coord_at_idx(&self, idx: usize) -> u64 {
+        self.ref_coords[idx]
     }
 
     pub fn pair_at_idx(&self, idx: usize) -> (u64, u64) {
-        (AlignedCoordsMethods::query_coord_at_idx(self, idx), AlignedCoordsMethods::ref_coord_at_idx(self, idx))
+        (self.query_coord_at_idx(idx), self.ref_coord_at_idx(idx))
     }
 
     pub fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
-        AlignedCoordsMethods::find_coord_idx_by_ref_pos(self, target, start_left)
+        let t = target as u64;
+        let idx = start_left + self.ref_coords[start_left..].partition_point(|&x| x < t);
+        let found = idx < self.ref_coords.len() && self.ref_coords[idx] == t;
+        (idx, found)
     }
 
     pub fn __len__(&self) -> usize {

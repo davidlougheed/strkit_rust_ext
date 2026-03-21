@@ -378,7 +378,7 @@ impl LocusReadCoords {
 fn _get_read_coords_from_matched_pairs(
     locus_with_ref_data: &STRkitLocusWithRefData,
     query_seq: &str,
-    aligned_coords: &STRkitAlignedCoords,
+    aligned_coords: PyRef<'_, STRkitAlignedCoords>,
     vcf_anchor_size: usize,
     allow_only_one_full_flank: bool,
 ) -> LocusReadCoords {
@@ -530,20 +530,22 @@ pub fn get_read_coords_from_matched_pairs(
     py: Python<'_>,
     locus_with_ref_data: &STRkitLocusWithRefData,
     segment: &mut STRkitAlignedSegment,
-    aligned_coords: Option<STRkitAlignedCoords>,
+    aligned_coords: Option<Py<STRkitAlignedCoords>>,
     vcf_anchor_size: usize,
     allow_only_one_full_flank: bool,
 ) -> PyResult<Py<LocusReadCoords>> {
     if aligned_coords.is_none() {
-        segment.cache_cigar_aligned_coords();
+        segment.cache_cigar_aligned_coords(py)?;
     }
 
     let ac = aligned_coords.as_ref()
         .or(segment.cigar_aligned_coords.as_ref())
         .expect("should have aligned coordinates from function or segment");
 
+    let ac_ref = ac.borrow(py);
+
     Py::new(py, _get_read_coords_from_matched_pairs(
-        locus_with_ref_data, &segment.query_sequence, ac, vcf_anchor_size, allow_only_one_full_flank
+        locus_with_ref_data, &segment.query_sequence, ac_ref, vcf_anchor_size, allow_only_one_full_flank
     ))
 }
 
@@ -614,7 +616,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
                 .unwrap()
                 .cast_into::<STRkitSegmentAlignmentDataForLocus>()?
                 .borrow();
-        let aligned_coords = &segment_alignment_data_for_locus.aligned_coords;
+        let aligned_coords = &segment_alignment_data_for_locus.aligned_coords.borrow(py);
         let coords_len = aligned_coords.query_coords.len();
 
         if coords_len < twox_takein {
