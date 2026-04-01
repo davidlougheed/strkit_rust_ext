@@ -26,7 +26,7 @@ static DNA_MATRIX: Lazy<Matrix> = Lazy::new(|| {
     dna_codes.insert(b'K', vec![b'G', b'T']);
     dna_codes.insert(b'M', vec![b'A', b'C']);
     dna_codes.insert(b'B', vec![b'C', b'G', b'T']);
-    dna_codes.insert(b'D', vec![b'A', b'C', b'T']);
+    dna_codes.insert(b'D', vec![b'A', b'G', b'T']);
     dna_codes.insert(b'H', vec![b'A', b'C', b'T']);
     dna_codes.insert(b'V', vec![b'A', b'C', b'G']);
     dna_codes.insert(b'N', vec![b'A', b'C', b'G', b'T']);
