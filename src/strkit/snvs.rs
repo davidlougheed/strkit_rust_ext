@@ -7,6 +7,8 @@ use pyo3::types::{PyBytes, PyDict, PyString};
 use regex::Regex;
 use rust_htslib::bcf;
 use rust_htslib::bcf::Read;
+use rust_htslib::bcf::record::GenotypeAllele;
+use smallvec::SmallVec;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
@@ -34,6 +36,8 @@ pub struct CandidateSNV {
     id: String,
     ref_base: char,
     alts: Vec<char>,
+    gt: Option<SmallVec<[char; 2]>>,
+    phased: bool,
     // This struct must be built with STRkitVCFReader.get_candidate_snvs(...) via CandidateSNVs
 }
 
@@ -194,17 +198,54 @@ impl STRkitVCFReader {
 
                             let snv_ref = alleles[0];
                             if snv_ref.len() == 1 {
+                                let ref_base = snv_ref[0] as char;
                                 let snv_alts = alleles[1..]
                                     .iter()
                                     .filter(|a| a.len() == 1)
                                     .map(|aa| aa[0] as char)
                                     .collect::<Vec<char>>();
 
-                                if !snv_alts.is_empty() {
+                                let gts = record.genotypes().map_err(
+                                    |e| PyErr::new::<PyException, _>(PyException::new_err(e.to_string()))
+                                )?;
+                                let gt_res = self.sample_idx.map(|s| {
+                                    let gt = gts.get(s);
+                                    let mut p = false;
+                                    let mut cs = SmallVec::<[char; 2]>::new();
+                                    let mut last_idx = 0;
+                                    let mut het = false;
+                                    for &a in gt.iter() {
+                                        match a {
+                                            GenotypeAllele::Phased(ai) => {
+                                                cs.push(if ai == 0 { ref_base } else { snv_alts[ai as usize - 1] });
+                                                p = true;
+                                                het = het || ai != last_idx;
+                                                last_idx = ai;
+                                            },
+                                            GenotypeAllele::PhasedMissing => {
+                                                return (None, true, false);
+                                            },
+                                            GenotypeAllele::Unphased(ai) => {
+                                                cs.push(if ai == 0 { ref_base } else { snv_alts[ai as usize - 1] });
+                                                het = het || ai != last_idx;
+                                                last_idx = ai;
+                                            },
+                                            GenotypeAllele::UnphasedMissing => {
+                                                return (None, false, false);
+                                            }
+                                        }
+                                    }
+                                    (Some(cs), p, het)
+                                }).unwrap_or((None, false, false));
+
+                                if !snv_alts.is_empty()
+                                        && (self.sample_idx.is_none() || (gt_res.0.is_some() && gt_res.2)) {
                                     candidate_snvs.insert(record.pos() as usize, CandidateSNV {
                                         id: String::from_utf8(record.id()).unwrap(),
-                                        ref_base: snv_ref[0] as char,
+                                        ref_base,
                                         alts: snv_alts,
+                                        gt: gt_res.0,
+                                        phased: gt_res.1,
                                     });
                                 }
                             }

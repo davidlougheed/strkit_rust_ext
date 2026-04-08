@@ -1519,8 +1519,10 @@ dependencies = [
  "rust-htslib",
  "rust-lapper",
  "serde",
+ "smallvec",
  "spoa_rs",
  "strsim",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
