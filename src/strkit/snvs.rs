@@ -14,6 +14,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use crate::aligned_coords::STRkitAlignedCoords;
+use crate::coords::RefCoord;
 use crate::locus::STRkitLocusBlock;
 use crate::reads::{STRkitAlignedSegment, STRkitLocusBlockSegments, STRkitSegmentAlignmentDataForLocus};
 
@@ -43,7 +44,7 @@ pub struct CandidateSNV {
 
 #[pyclass(frozen)]
 pub struct CandidateSNVs {
-    pub snvs: HashMap<usize, CandidateSNV>,
+    pub snvs: HashMap<RefCoord, CandidateSNV>,
 }
 
 #[pymethods]
@@ -172,7 +173,7 @@ impl STRkitVCFReader {
 
         let header = reader.header();
 
-        let mut candidate_snvs = HashMap::<usize, CandidateSNV>::new();
+        let mut candidate_snvs = HashMap::<RefCoord, CandidateSNV>::new();
 
         let lb_contig: &str = &locus_block.loci[0].contig;
         let snv_contig: &str = if header.name2rid(lb_contig.as_bytes()).is_err() {
@@ -240,7 +241,7 @@ impl STRkitVCFReader {
 
                                 if !snv_alts.is_empty()
                                         && (self.sample_idx.is_none() || (gt_res.0.is_some() && gt_res.2)) {
-                                    candidate_snvs.insert(record.pos() as usize, CandidateSNV {
+                                    candidate_snvs.insert(record.pos() as RefCoord, CandidateSNV {
                                         id: String::from_utf8(record.id()).unwrap(),
                                         ref_base,
                                         alts: snv_alts,
@@ -311,18 +312,18 @@ pub fn get_snvs_meticulous(
     ref_seq: &[u8],
     query_coords: &[u64],
     ref_coords: &[u64],
-    ref_coord_start: usize,
-    tr_start_pos: usize,
-    tr_end_pos: usize,
+    ref_coord_start: RefCoord,
+    tr_start_pos: RefCoord,
+    tr_end_pos: RefCoord,
     useful_snvs_params: &UsefulSNVsParams,
-) -> HashMap<usize, (char, u8)> {
+) -> HashMap<RefCoord, (char, u8)> {
     let qry_seq_len = query_sequence.len();
 
     let mut lhs_contiguous: usize = 0;
     let mut rhs_contiguous: usize = 0;
-    let mut last_rp: Option<usize> = None;
+    let mut last_rp: Option<u64> = None;
 
-    let mut snv_group = Vec::<(usize, (char, u8))>::new();
+    let mut snv_group = Vec::<(RefCoord, (char, u8))>::new();
 
     let mut snvs = HashMap::new();
 
@@ -332,7 +333,7 @@ pub fn get_snvs_meticulous(
     let entropy_threshold = useful_snvs_params.entropy_threshold;
 
     for i in 0..(ref_coords.len()) {
-        let ref_pos = ref_coords[i] as usize;
+        let ref_pos = ref_coords[i];
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
@@ -341,7 +342,7 @@ pub fn get_snvs_meticulous(
         let read_pos = query_coords[i] as usize;
 
         let read_base = query_sequence[read_pos];
-        let ref_base = ref_seq[ref_pos - ref_coord_start];
+        let ref_base = ref_seq[(ref_pos - ref_coord_start) as usize];
 
         let contiguous_at_base = match last_rp {
             Some(lr) => useful_snvs_params.contiguous_threshold == 0 || ref_pos - lr == 1,
@@ -414,11 +415,11 @@ pub fn get_snvs_simple(
     ref_seq: &[u8],
     query_coords: &[u64],
     ref_coords: &[u64],
-    ref_coord_start: usize,
-    tr_start_pos: usize,
-    tr_end_pos: usize,
+    ref_coord_start: RefCoord,
+    tr_start_pos: RefCoord,
+    tr_end_pos: RefCoord,
     useful_snvs_params: &UsefulSNVsParams,
-) -> HashMap<usize, (char, u8)> {
+) -> HashMap<RefCoord, (char, u8)> {
     let qry_seq_len = query_sequence.len();
 
     let mut n_snvs = 0;
@@ -429,7 +430,7 @@ pub fn get_snvs_simple(
     let entropy_threshold = useful_snvs_params.entropy_threshold;
 
     for i in 0..query_coords.len() {
-        let ref_pos = ref_coords[i] as usize;
+        let ref_pos = ref_coords[i];
 
         if tr_start_pos <= ref_pos && ref_pos < tr_end_pos {
             continue;
@@ -438,7 +439,7 @@ pub fn get_snvs_simple(
         let read_pos = query_coords[i] as usize;
         let qry_byte_at_pos = query_sequence[read_pos];
 
-        if qry_byte_at_pos == ref_seq[ref_pos - ref_coord_start] {
+        if qry_byte_at_pos == ref_seq[(ref_pos - ref_coord_start) as usize] {
             continue;
         }
 
@@ -467,11 +468,11 @@ pub trait GetReadSNVs {
         ref_seq: &str,
         query_coords: &[u64],
         ref_coords: &[u64],
-        ref_coord_start: usize,
-        tr_start_pos: usize,
-        tr_end_pos: usize,
+        ref_coord_start: RefCoord,
+        tr_start_pos: RefCoord,
+        tr_end_pos: RefCoord,
         useful_snvs_params: &UsefulSNVsParams,
-    ) -> HashMap<usize, (char, u8)>;
+    ) -> HashMap<RefCoord, (char, u8)>;
 }
 
 impl GetReadSNVs for STRkitAlignedSegment {
@@ -480,11 +481,11 @@ impl GetReadSNVs for STRkitAlignedSegment {
         ref_seq: &str,
         query_coords: &[u64],
         ref_coords: &[u64],
-        ref_coord_start: usize,
-        tr_start_pos: usize,
-        tr_end_pos: usize,
+        ref_coord_start: RefCoord,
+        tr_start_pos: RefCoord,
+        tr_end_pos: RefCoord,
         useful_snvs_params: &UsefulSNVsParams,
-    ) -> HashMap<usize, (char, u8)> {
+    ) -> HashMap<RefCoord, (char, u8)> {
         // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
         // surrounded by a stretch of aligned bases of a specified size on either side.
         // Returns a hash map of <reference position, base>
@@ -526,7 +527,7 @@ impl GetReadSNVs for STRkitAlignedSegment {
 fn find_base_at_pos(
     query_sequence_bytes: &[u8],
     aligned_coords: &STRkitAlignedCoords,
-    t: usize,
+    t: RefCoord,
     start_left: usize,
 ) -> (char, usize, bool) {
     let (idx, found) = aligned_coords.find_coord_idx_by_ref_pos(t, start_left);
@@ -548,18 +549,18 @@ pub fn calculate_useful_snvs(
     block_segments: &STRkitLocusBlockSegments,
     read_dict_extra: Bound<'_, PyDict>,
     read_locus_alignment_data: &Bound<'_, PyDict>,
-    read_snvs: HashMap<String, HashMap<usize, (char, u8)>>,
-    locus_snvs: HashSet<usize>,
+    read_snvs: HashMap<String, HashMap<RefCoord, (char, u8)>>,
+    locus_snvs: HashSet<RefCoord>,
     min_allele_reads: usize,
-) -> Result<Vec<(usize, usize)>, PyErr> {
+) -> Result<Vec<(usize, RefCoord)>, PyErr> {
     // Mutates read_dict_extra - adds snv_bases keys to read entries
 
     let n_reads = read_dict_extra.len();
 
-    let mut sorted_snvs: Vec<usize> = locus_snvs.into_iter().collect();
+    let mut sorted_snvs: Vec<RefCoord> = locus_snvs.into_iter().collect();
     sorted_snvs.sort();
 
-    let mut snv_counters: HashMap<usize, HashMap<char, usize>> =
+    let mut snv_counters: HashMap<u64, HashMap<char, usize>> =
         sorted_snvs
             .iter()
             .map(|&s| (s, HashMap::new()))
@@ -587,8 +588,8 @@ pub fn calculate_useful_snvs(
                 .borrow();
         let aligned_coords = &segment_alignment_data_for_locus.aligned_coords.borrow(py);
 
-        let segment_start = segment.start as usize;
-        let segment_end = segment.end as usize;
+        let segment_start = segment.start;
+        let segment_end = segment.end;
 
         let mut last_pair_idx: usize = 0;
         let snv_list: Vec<(char, u8)> = sorted_snvs.iter().map(|&snv_pos| {
@@ -646,7 +647,7 @@ pub fn calculate_useful_snvs(
     let total_read_threshold = cmp::max((n_reads as f32 * reads_with_snv_locus_proportion).round() as usize, 5);
     // snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
 
-    let res: Vec<(usize, usize)> = sorted_snvs.iter().enumerate().filter_map(|(s_idx, s_pos)| {
+    let res: Vec<(usize, RefCoord)> = sorted_snvs.iter().enumerate().filter_map(|(s_idx, s_pos)| {
         let snv_counter = snv_counters.get(s_pos).unwrap();
 
         let n_alleles_meeting_threshold: usize = snv_counter

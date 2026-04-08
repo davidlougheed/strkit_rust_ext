@@ -10,10 +10,8 @@ use crate::aligned_coords::STRkitAlignedCoords;
 use crate::reads::STRkitAlignedSegment;
 use crate::reads::STRkitLocusBlockSegments;
 use crate::reads::STRkitSegmentAlignmentDataForLocus;
-use crate::snvs::GetReadSNVs;
-use crate::strkit::snvs::{CandidateSNVs, calculate_useful_snvs};
-
-use super::snvs::UsefulSNVsParams;
+use crate::snvs::{CandidateSNVs, GetReadSNVs, UsefulSNVsParams, calculate_useful_snvs};
+use crate::coords::{QueryCoord, RefCoord};
 
 
 #[derive(Clone, Deserialize, Hash, Serialize)]
@@ -28,26 +26,26 @@ pub struct STRkitLocus {
     pub contig: String,
 
     #[pyo3(get)]
-    pub left_coord: usize,
+    pub left_coord: RefCoord,
     #[pyo3(get)]
-    pub left_flank_coord: usize,
+    pub left_flank_coord: RefCoord,
     #[pyo3(get)]
-    pub right_coord: usize,
+    pub right_coord: RefCoord,
     #[pyo3(get)]
-    pub right_flank_coord: usize,
+    pub right_flank_coord: RefCoord,
     #[pyo3(get)]
-    pub ref_size: usize, // reference size, in terms of coordinates
+    pub ref_size: u64, // reference size, in terms of coordinates
 
     #[pyo3(get)]
     pub motif: String,
     #[pyo3(get)]
-    pub motif_size: usize,
+    pub motif_size: u16,
 
     #[pyo3(get)]
     pub n_alleles: usize,
 
     #[pyo3(get)]
-    pub flank_size: usize,
+    pub flank_size: u64,
 
     #[pyo3(get)]
     pub annotations: Vec<String>,
@@ -62,11 +60,11 @@ impl STRkitLocus {
         t_idx: usize,
         locus_id: &str,
         contig: &str,
-        left_coord: usize,
-        right_coord: usize,
+        left_coord: RefCoord,
+        right_coord: RefCoord,
         motif: &str,
         n_alleles: usize,
-        flank_size: usize,
+        flank_size: u64,
         annotations: Vec<String>,
     ) -> PyResult<Self> {
         let log_str = format!(
@@ -87,7 +85,7 @@ impl STRkitLocus {
                 ref_size: right_coord - left_coord,
 
                 motif: motif.to_string(),
-                motif_size: motif.len(),
+                motif_size: motif.len() as u16,
 
                 n_alleles,
 
@@ -144,8 +142,8 @@ impl STRkitLocus {
 
     fn with_ref_data(
         &self,
-        left_coord_adj: usize,
-        right_coord_adj: usize,
+        left_coord_adj: u64,
+        right_coord_adj: u64,
         ref_contig: String,
         ref_cn: i32,
         ref_seq: String,
@@ -184,7 +182,7 @@ impl STRkitLocus {
         Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 
-    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, usize, usize, String, usize, usize, Vec<String>)> {
+    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, u64, u64, String, usize, u64, Vec<String>)> {
         Ok((
             self.t_idx,
             self.locus_id.clone(),
@@ -206,9 +204,9 @@ pub struct STRkitLocusWithRefData {
     pub locus_def: STRkitLocus,
 
     #[pyo3(get)]
-    pub left_coord_adj: usize,
+    pub left_coord_adj: RefCoord,
     #[pyo3(get)]
-    pub right_coord_adj: usize,
+    pub right_coord_adj: RefCoord,
 
     #[pyo3(get)]
     pub ref_contig: String,
@@ -231,12 +229,12 @@ pub struct STRkitLocusWithRefData {
 #[pymethods]
 impl STRkitLocusWithRefData {
     #[getter]
-    fn left_flank_coord(&self) -> usize {
+    fn left_flank_coord(&self) -> RefCoord {
         self.locus_def.left_flank_coord
     }
 
     #[getter]
-    fn right_flank_coord(&self) -> usize {
+    fn right_flank_coord(&self) -> RefCoord {
         self.locus_def.right_flank_coord
     }
 
@@ -266,8 +264,8 @@ impl STRkitLocusBlockIter {
 #[pyclass(from_py_object, module = "strkit_rust_ext")]
 pub struct STRkitLocusBlock {
     pub loci: Vec<STRkitLocus>,
-    pub left: u64, // Left-most coordinate of all loci
-    pub right: u64, // Right-most coordinate of all loci
+    pub left: RefCoord, // Left-most coordinate of all loci
+    pub right: RefCoord, // Right-most coordinate of all loci
     pub log_str: String,
 }
 
@@ -319,13 +317,13 @@ impl STRkitLocusBlock {
 #[pyclass]
 pub struct LocusReadCoords {
     #[pyo3(get)]
-    pub left_flank_start: Option<usize>,
+    pub left_flank_start: Option<QueryCoord>,
     #[pyo3(get)]
-    pub left_flank_end: Option<usize>,
+    pub left_flank_end: Option<QueryCoord>,
     #[pyo3(get)]
-    pub right_flank_start: Option<usize>,
+    pub right_flank_start: Option<QueryCoord>,
     #[pyo3(get)]
-    pub right_flank_end: Option<usize>,
+    pub right_flank_end: Option<QueryCoord>,
     #[pyo3(get)]
     pub full_left_flank: bool,
     #[pyo3(get)]
@@ -379,7 +377,7 @@ fn _get_read_coords_from_matched_pairs(
     locus_with_ref_data: &STRkitLocusWithRefData,
     query_seq: &str,
     aligned_coords: PyRef<'_, STRkitAlignedCoords>,
-    vcf_anchor_size: usize,
+    vcf_anchor_size: u64,
     allow_only_one_full_flank: bool,
 ) -> LocusReadCoords {
     // Skip gaps on either side to find mapped flank indices
@@ -387,7 +385,7 @@ fn _get_read_coords_from_matched_pairs(
     // Binary search for left flank start ------------------------------------------------------------------------------
 
     let (mut lhs, mut full_left_flank) = aligned_coords.find_coord_idx_by_ref_pos(
-        locus_with_ref_data.locus_def.left_flank_coord as usize, 0
+        locus_with_ref_data.locus_def.left_flank_coord, 0
     );
 
     // lhs now contains the index for the closest starting coordinate to left_flank_coord (or is out-of-bounds)
@@ -410,14 +408,14 @@ fn _get_read_coords_from_matched_pairs(
 
     // If we're allowed to have a partial flank on one side, we can keep going even if we don't have the full left
     // flank. In that case, we will require a full right flank later on.
-    let mut left_flank_start: usize = if full_left_flank { aligned_coords.query_coords[lhs] as usize } else { 0 };
+    let mut left_flank_start: QueryCoord = if full_left_flank { aligned_coords.query_coords[lhs] } else { 0 };
 
     // -----------------------------------------------------------------------------------------------------------------
 
     // Binary search for left flank end (may "fail" if we don't have a pair for left_coord - 1 (i.e., there's a gap in
     // the reference to the direct left of left_coord), in which case we can do it the slow way in O(n) time).
 
-    let mut left_flank_end: Option<usize> = None;
+    let mut left_flank_end: Option<QueryCoord> = None;
 
     let mut loop_start = if full_left_flank { lhs + 1 } else { 0 };
 
@@ -426,7 +424,7 @@ fn _get_read_coords_from_matched_pairs(
         loop_start,
     );
     if lhs_end_found {
-        left_flank_end = Some(aligned_coords.query_coords[lhs_end] as usize + 1);
+        left_flank_end = Some(aligned_coords.query_coords[lhs_end] + 1);
         loop_start = lhs_end + 1;
     } else {
         // eprintln!("lhs_end q_coord={}, found={}", q_coords[lhs_end] + 1, lhs_end_found);
@@ -434,17 +432,17 @@ fn _get_read_coords_from_matched_pairs(
 
     // Linear search for left flank end (if not found via binary search) and right flank start/end ---------------------
 
-    let motif_size = locus_with_ref_data.locus_def.motif_size;
+    let motif_size = locus_with_ref_data.locus_def.motif_size as u64;
 
-    let mut right_flank_start: Option<usize> = None;
-    let mut right_flank_end: Option<usize> = None;
+    let mut right_flank_start: Option<QueryCoord> = None;
+    let mut right_flank_end: Option<QueryCoord> = None;
     let mut full_right_flank = false;
 
-    let mut last_idx: usize = 0;
+    let mut last_idx: QueryCoord = 0;
 
     for i in loop_start..aligned_coords.query_coords.len() {
-        let query_coord = aligned_coords.query_coords[i] as usize;
-        let ref_coord = aligned_coords.ref_coords[i] as usize;
+        let query_coord = aligned_coords.query_coords[i];
+        let ref_coord = aligned_coords.ref_coords[i];
 
         // Skip gaps on either side to find mapped flank indices
 
@@ -452,7 +450,7 @@ fn _get_read_coords_from_matched_pairs(
             // Coordinate here is exclusive - we don't want to include a gap between the flanking region and
             // the STR; if we include the left-most base of the STR, we will have a giant flanking region which
             // will include part of the tandem repeat itself.
-            let lfe = query_coord as usize + 1; // Add 1 to make it exclusive
+            let lfe = query_coord + 1; // Add 1 to make it exclusive
 
             // Even if we're allowed to have a small flank (allow_only_one_full_flank), we still require a flanking
             // region large enough to anchor the sequence in the VCF output.
@@ -469,9 +467,9 @@ fn _get_read_coords_from_matched_pairs(
                 // TODO: do the same thing for the left side
                 right_flank_start.is_none()
                     || (last_idx > 0
-                        && query_coord - last_idx >= motif_size
+                        && query_coord - last_idx >= motif_size as u64
                         && (ref_coord - locus_with_ref_data.right_coord_adj <= motif_size * 2)
-                        && (query_seq[(last_idx as usize)..query_coord]
+                        && (query_seq[(last_idx as usize)..(query_coord as usize)]
                             .matches(&locus_with_ref_data.locus_def.motif)
                             .count() as f64
                             / ((query_coord - last_idx) / motif_size) as f64)
@@ -531,7 +529,7 @@ pub fn get_read_coords_from_matched_pairs(
     locus_with_ref_data: &STRkitLocusWithRefData,
     segment: &mut STRkitAlignedSegment,
     aligned_coords: Option<Py<STRkitAlignedCoords>>,
-    vcf_anchor_size: usize,
+    vcf_anchor_size: u64,
     allow_only_one_full_flank: bool,
 ) -> PyResult<Py<LocusReadCoords>> {
     if aligned_coords.is_none() {
@@ -554,7 +552,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     py: Python<'_>,
     block_segments: &STRkitLocusBlockSegments,
     locus_with_ref_data: &STRkitLocusWithRefData,
-    left_most_coord: usize,
+    left_most_coord: RefCoord,
     ref_cache: &str,
     read_dict_extra: Bound<PyDict>,
     read_locus_alignment_data: &Bound<PyDict>,
@@ -564,17 +562,17 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     only_known_snvs: bool,
     logger: Bound<PyAny>,
     locus_log_str: &str,
-) -> Result<Vec<(usize, usize)>, PyErr> {
+) -> Result<Vec<(usize, RefCoord)>, PyErr> {
     // Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
     // in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
 
-    let left_coord_adj = locus_with_ref_data.left_coord_adj as usize;
-    let right_coord_adj = locus_with_ref_data.left_coord_adj as usize;
+    let left_coord_adj = locus_with_ref_data.left_coord_adj;
+    let right_coord_adj = locus_with_ref_data.left_coord_adj;
 
     // Mutates: read_dict_extra (via call to calculate_useful_snvs)
 
-    let mut locus_snvs: HashSet<usize> = HashSet::new();
-    let mut read_snvs: HashMap<String, HashMap<usize, (char, u8)>> = HashMap::new();
+    let mut locus_snvs: HashSet<RefCoord> = HashSet::new();
+    let mut read_snvs: HashMap<String, HashMap<RefCoord, (char, u8)>> = HashMap::new();
 
     // below: magic values for skipping false positives / weird 'SNVs' that aren't helpful
     let useful_snvs_params = UsefulSNVsParams {
@@ -632,7 +630,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             continue;
         }
 
-        let snvs: HashMap<usize, (char, u8)> = segment.get_read_snvs(
+        let snvs: HashMap<RefCoord, (char, u8)> = segment.get_read_snvs(
             ref_cache,
             // aligned coords without clipping at ends
             &aligned_coords.query_coords[scl..(coords_len - scr)],

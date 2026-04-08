@@ -51,8 +51,9 @@ pub fn normalize_contig_py(contig: PyBackedStr, has_chr: bool) -> String {
     normalize_contig(&contig, has_chr)
 }
 
-pub fn calc_motif_size_kmers(tr_read_seq_wc: &str, tr_len: usize, motif_size: usize) -> Vec<&str> {
-    (0..tr_len-motif_size+1).map(|i| &tr_read_seq_wc[i..i+motif_size]).collect()
+pub fn calc_motif_size_kmers(tr_read_seq_wc: &str, tr_len: usize, motif_size: u16) -> Vec<&str> {
+    let ms = motif_size as usize;
+    (0..tr_len-ms+1).map(|i| &tr_read_seq_wc[i..i+ms]).collect()
 }
 
 #[cfg(test)]

@@ -3,6 +3,7 @@ mod strkit;
 pub use crate::strkit::aligned_coords;
 pub use crate::strkit::cigar;
 pub use crate::strkit::consensus;
+pub use crate::strkit::coords;
 pub use crate::strkit::exceptions;
 pub use crate::strkit::locus;
 pub use crate::strkit::reads;

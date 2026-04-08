@@ -4,13 +4,15 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use serde::{Deserialize, Serialize};
 
+use crate::coords::{QueryCoord, RefCoord};
+
 #[derive(Deserialize, Serialize)]
 #[pyclass(module = "strkit_rust_ext")]
 pub struct STRkitAlignedCoords {
     #[pyo3(get)]
-    pub query_coords: Vec<u64>,
+    pub query_coords: Vec<QueryCoord>,
     #[pyo3(get)]
-    pub ref_coords: Vec<u64>,
+    pub ref_coords: Vec<RefCoord>,
 }
 
 #[pymethods]
@@ -26,19 +28,19 @@ impl STRkitAlignedCoords {
         )
     }
 
-    pub fn query_coord_at_idx(&self, idx: usize) -> u64 {
+    pub fn query_coord_at_idx(&self, idx: usize) -> QueryCoord {
         self.query_coords[idx]
     }
 
-    pub fn ref_coord_at_idx(&self, idx: usize) -> u64 {
+    pub fn ref_coord_at_idx(&self, idx: usize) -> RefCoord {
         self.ref_coords[idx]
     }
 
-    pub fn pair_at_idx(&self, idx: usize) -> (u64, u64) {
+    pub fn pair_at_idx(&self, idx: usize) -> (QueryCoord, RefCoord) {
         (self.query_coord_at_idx(idx), self.ref_coord_at_idx(idx))
     }
 
-    pub fn find_coord_idx_by_ref_pos(&self, target: usize, start_left: usize) -> (usize, bool) {
+    pub fn find_coord_idx_by_ref_pos(&self, target: RefCoord, start_left: usize) -> (usize, bool) {
         let t = target as u64;
         let idx = start_left + self.ref_coords[start_left..].partition_point(|&x| x < t);
         let found = idx < self.ref_coords.len() && self.ref_coords[idx] == t;

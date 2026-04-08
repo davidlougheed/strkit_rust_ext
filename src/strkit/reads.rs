@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::cigar::{decode_cigar_item, get_aligned_pair_matches_rs};
+use crate::coords::RefCoord;
 use crate::exceptions::LowMeanBaseQual;
 use crate::locus::{LocusReadCoords, STRkitLocus, STRkitLocusBlock, STRkitLocusWithRefData};
 use crate::utils::{normalize_contig, starts_with_chr, calculate_seq_with_wildcards, calc_motif_size_kmers};
@@ -55,7 +56,7 @@ impl STRkitSegmentAlignmentDataForLocus {
         self.aligned_coords.borrow(py).ref_coord_at_idx(idx)
     }
 
-    pub fn find_coord_idx_by_ref_pos(&self, py: Python<'_>, target: usize, start_left: usize) -> (usize, bool) {
+    pub fn find_coord_idx_by_ref_pos(&self, py: Python<'_>, target: RefCoord, start_left: usize) -> (usize, bool) {
         self.aligned_coords.borrow(py).find_coord_idx_by_ref_pos(target, start_left)
     }
 }
@@ -64,8 +65,8 @@ impl STRkitSegmentAlignmentDataForLocus {
 pub struct STRkitAlignedSegmentSequenceDataForLocus {
     // This struct must be created with STRkitAlignedSegment.get_sequence_data_for_locus.
     // ==================================================================================
-    _motif_size: usize,
-    _flank_size: usize,
+    _motif_size: u16,
+    _flank_size: u64,
     pub tr_qqs: Array1<u8>, // Tandem repeat region query sequence qualities
     pub mean_base_qual: Option<f32>, // Mean base quality of tandem repeat region query sequence
     // --
@@ -99,7 +100,7 @@ impl STRkitAlignedSegmentSequenceDataForLocus {
     /// Adjusts a pairwise alignment score (integer) from parasail into a floating point score (roughly) normalized to
     /// the length of the TR sequence + left/right flanking sequence.
     fn calc_adj_score(&self, read_cn_score: i32) -> Option<f32> {
-        (self.tr_len > 0).then(|| read_cn_score as f32 / (self.tr_len + self._flank_size * 2) as f32)
+        (self.tr_len > 0).then(|| read_cn_score as f32 / (self.tr_len + self._flank_size as usize * 2) as f32)
     }
 }
 
@@ -112,9 +113,9 @@ pub struct STRkitAlignedSegment {
     #[pyo3(get)]
     length: usize,
     #[pyo3(get)]
-    pub start: u64,
+    pub start: RefCoord,
     #[pyo3(get)]
-    pub end: u64,
+    pub end: RefCoord,
     #[pyo3(get)]
     is_reverse: bool,
     #[pyo3(get)]
@@ -215,10 +216,10 @@ impl STRkitAlignedSegment {
         base_wildcard_threshold: u8,
     ) -> PyResult<STRkitAlignedSegmentSequenceDataForLocus> {
         let lrc = segment_alignment_data_for_locus.locus_read_coords.borrow(py);
-        let left_flank_start = lrc.left_flank_start.ok_or(PyErr::new::<PyException, _>("missing left_flank_start"))?;
-        let left_flank_end = lrc.left_flank_end.ok_or(PyErr::new::<PyException, _>("missing left_flank_end"))?;
-        let right_flank_start = lrc.right_flank_start.ok_or(PyErr::new::<PyException, _>("missing right_flank_start"))?;
-        let right_flank_end = lrc.right_flank_end.ok_or(PyErr::new::<PyException, _>("missing right_flank_end"))?;
+        let left_flank_start = lrc.left_flank_start.ok_or(PyErr::new::<PyException, _>("missing left_flank_start"))? as usize;
+        let left_flank_end = lrc.left_flank_end.ok_or(PyErr::new::<PyException, _>("missing left_flank_end"))? as usize;
+        let right_flank_start = lrc.right_flank_start.ok_or(PyErr::new::<PyException, _>("missing right_flank_start"))? as usize;
+        let right_flank_end = lrc.right_flank_end.ok_or(PyErr::new::<PyException, _>("missing right_flank_end"))? as usize;
 
         // -------------------------------------------------------------------------------------------------------------
 
@@ -279,7 +280,7 @@ impl STRkitAlignedSegment {
             // TODO: rust: 0-copy + same lifetime
             STRkitAlignedSegmentSequenceDataForLocus {
                 _motif_size: locus.motif_size,
-                _flank_size: locus.flank_size as usize,
+                _flank_size: locus.flank_size,
                 tr_qqs: tr_qqs, // TODO: clone or view?
                 mean_base_qual,
                 // --
@@ -298,7 +299,7 @@ impl STRkitAlignedSegment {
         py: Python<'_>,
         locus_with_ref_data: &STRkitLocusWithRefData,
         segment_alignment_data_for_locus: &STRkitSegmentAlignmentDataForLocus,
-        vcf_anchor_size: usize,
+        vcf_anchor_size: u64,
     ) -> PyResult<String> {
         // calculates a VCF sequence start 'anchor' for this particular read. a consensus of the read anchors will
         // determine the allele anchor, which is a bit of a hack.
@@ -310,11 +311,11 @@ impl STRkitAlignedSegment {
         for anchor_offset in (1..vcf_anchor_size+1).rev() {
             // start from largest - want to include small indels in query if they appear immediately upstream
             let (anchor_pair_idx, anchor_pair_found) = segment_alignment_data_for_locus.find_coord_idx_by_ref_pos(
-                py, locus_with_ref_data.left_coord_adj as usize - anchor_offset, 0
+                py, locus_with_ref_data.left_coord_adj - anchor_offset, 0
             );
             if anchor_pair_found {
                 let start = segment_alignment_data_for_locus.query_coord_at_idx(py, anchor_pair_idx) as usize;
-                return Ok(self.query_sequence[start..end].to_string());
+                return Ok(self.query_sequence[start..end as usize].to_string());
             }
             // otherwise, there's an indel in ref - so we shrink the anchor size
         }
