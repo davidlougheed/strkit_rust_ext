@@ -49,13 +49,16 @@ pub struct CandidateSNVs {
 
 #[pymethods]
 impl CandidateSNVs {
-    fn get<'py>(&self, py: Python<'py>, pos: usize) -> Option<Bound<'py, PyDict>> {
-        self.snvs.get(&pos).map(move |c| {
-            let res = PyDict::new(py);
-            res.set_item("id", &c.id).unwrap();
-            res.set_item("ref_base", c.ref_base).unwrap();
-            res.set_item("alts", &c.alts).unwrap();
-            res
+    fn get<'py>(&self, py: Python<'py>, pos: RefCoord) -> PyResult<Option<Bound<'py, PyDict>>> {
+        Ok(match self.snvs.get(&pos) {
+            Some(c) => {
+                let res = PyDict::new(py);
+                res.set_item("id", &c.id)?;
+                res.set_item("ref_base", c.ref_base)?;
+                res.set_item("alts", &c.alts)?;
+                Some(res)
+            },
+            None => None,
         })
     }
 }
