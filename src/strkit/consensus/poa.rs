@@ -88,7 +88,7 @@ fn poa_consensus_seq_spoa(seqs: &[&str], _n_blanks: usize) -> Option<String> {
     let mut graph = spoa_rs::Graph::new();
     let mut engine = spoa_rs::AlignmentEngine::new_affine(spoa_rs::AlignmentType::kNW, 1, -1, -1, 0);
 
-    for &seq in seqs {
+    for &seq in seqs.iter().rev() { // Reverse to add longest-to-shortest
         let (_, alignment) = engine.align(seq, &graph);
         graph.add_alignment(alignment, seq);
     }
@@ -232,6 +232,7 @@ mod test {
         assert_eq!(poa_consensus_seq_spoa(&vec![], 0), None);
         assert_eq!(poa_consensus_seq_spoa(&vec!["AA"], 0), Some(String::from("AA")));
         assert_eq!(poa_consensus_seq_spoa(&vec!["AA", "AB", "AA"], 0), Some(String::from("AA")));
+        assert_eq!(poa_consensus_seq_spoa(&vec!["A", "A", "AAA", "AAB"], 0), Some(String::from("AA")));
         // assert_eq!(poa_consensus_seq_spoa(&vec!["A", "AA"], 1), Some(String::from("A")));
     }
 }
