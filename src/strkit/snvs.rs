@@ -61,6 +61,16 @@ impl CandidateSNVs {
             None => None,
         })
     }
+
+    fn get_snv_id(&self, pos: RefCoord) -> Option<String> {
+        // TODO: rust: just do a normal .get + use reference to ID
+        self.snvs.get(&pos).map(|c| c.id.clone())
+    }
+
+    fn get_snv_ref_base(&self, pos: RefCoord) -> Option<char> {
+        // TODO: rust: just do a normal .get + use reference to ref base
+        self.snvs.get(&pos).map(|c| c.ref_base)
+    }
 }
 
 
