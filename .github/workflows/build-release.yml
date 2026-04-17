@@ -27,7 +27,7 @@ jobs:
           export CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true
           python -m venv env
           source env/bin/activate
-          python -m pip install 'maturin>=1.12.2,<1.13' pytest numpy
+          python -m pip install 'maturin>=1.13.1,<1.14' pytest numpy
           python -m maturin develop --jobs 2
           pytest
           cargo test
