@@ -1,8 +1,9 @@
 use once_cell::sync::Lazy;
 use parasail_rs::prelude::{Aligner, Matrix, Profile};
 use pyo3::pyfunction;
+use rapidhash::fast::{RapidHashMap, RapidHashSet};
 use strsim::levenshtein;
-use std::{borrow::Borrow, cmp, collections::{HashMap, HashSet}};
+use std::{borrow::Borrow, cmp};
 
 const MATCH_SCORE: i32 = 2;
 const MISMATCH_SCORE: i32 = -7;
@@ -15,10 +16,10 @@ const MIN_REPEAT_SIZE: i32 = 0;
 static DNA_MATRIX: Lazy<Matrix> = Lazy::new(|| {
     let mut matrix = Matrix::create(DNA_BASES, MATCH_SCORE, MISMATCH_SCORE).unwrap();
 
-    let dna_bases_map: HashMap<u8, i32> = DNA_BASES.iter().enumerate().map(|(i, &b)| (b, i as i32)).collect();
+    let dna_bases_map: RapidHashMap<u8, i32> = DNA_BASES.iter().enumerate().map(|(i, &b)| (b, i as i32)).collect();
 
     // Build a hashmap of IUPAC codes and which bases they represent
-    let mut dna_codes: HashMap<u8, Vec<u8>> = HashMap::new();
+    let mut dna_codes: RapidHashMap<u8, Vec<u8>> = RapidHashMap::default();
     dna_codes.insert(b'R', vec![b'A', b'G']);
     dna_codes.insert(b'Y', vec![b'C', b'T']);
     dna_codes.insert(b'S', vec![b'G', b'C']);
@@ -153,7 +154,7 @@ pub fn get_repeat_count(
         step = 1;
     }
 
-    let mut explored_sizes: HashSet<i32> = HashSet::new();
+    let mut explored_sizes: RapidHashSet<i32> = RapidHashSet::default();
     explored_sizes.insert(start_count);
 
     let mut best_size: i32 = start_count;

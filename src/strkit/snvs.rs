@@ -4,13 +4,13 @@ use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyString};
+use rapidhash::fast::{RapidHashMap, RapidHashSet};
 use regex::Regex;
 use rust_htslib::bcf;
 use rust_htslib::bcf::Read;
 use rust_htslib::bcf::record::{GenotypeAllele, Record};
 use smallvec::SmallVec;
 use std::cmp;
-use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use crate::aligned_coords::STRkitAlignedCoords;
@@ -43,7 +43,7 @@ pub struct CandidateSNV {
 
 #[pyclass(frozen)]
 pub struct CandidateSNVs {
-    pub snvs: HashMap<RefCoord, CandidateSNV>,
+    pub snvs: RapidHashMap<RefCoord, CandidateSNV>,
 }
 
 #[pymethods]
@@ -226,7 +226,7 @@ impl STRkitVCFReader {
 
         let header = reader.header();
 
-        let mut candidate_snvs = HashMap::<RefCoord, CandidateSNV>::new();
+        let mut candidate_snvs = RapidHashMap::<RefCoord, CandidateSNV>::default();
 
         let lb_contig: &str = &locus_block.loci[0].contig;
         let snv_contig: &str = if header.name2rid(lb_contig.as_bytes()).is_err() {
@@ -342,7 +342,7 @@ pub fn get_snvs_meticulous(
     tr_start_pos: RefCoord,
     tr_end_pos: RefCoord,
     useful_snvs_params: &UsefulSNVsParams,
-) -> HashMap<RefCoord, (char, u8)> {
+) -> RapidHashMap<RefCoord, (char, u8)> {
     let qry_seq_len = query_sequence.len();
 
     let mut lhs_contiguous: usize = 0;
@@ -351,7 +351,7 @@ pub fn get_snvs_meticulous(
 
     let mut snv_group = Vec::<(RefCoord, (char, u8))>::new();
 
-    let mut snvs = HashMap::new();
+    let mut snvs = RapidHashMap::default();
 
     let contiguous_threshold = useful_snvs_params.contiguous_threshold;
     let max_snv_group_size = useful_snvs_params.max_snv_group_size;
@@ -445,11 +445,11 @@ pub fn get_snvs_simple(
     tr_start_pos: RefCoord,
     tr_end_pos: RefCoord,
     useful_snvs_params: &UsefulSNVsParams,
-) -> HashMap<RefCoord, (char, u8)> {
+) -> RapidHashMap<RefCoord, (char, u8)> {
     let qry_seq_len = query_sequence.len();
 
     let mut n_snvs = 0;
-    let mut res = HashMap::new();
+    let mut res = RapidHashMap::default();
 
     let too_many_snvs_threshold = useful_snvs_params.too_many_snvs_threshold;
     let entropy_flank_size = useful_snvs_params.entropy_flank_size;
@@ -498,7 +498,7 @@ pub trait GetReadSNVs {
         tr_start_pos: RefCoord,
         tr_end_pos: RefCoord,
         useful_snvs_params: &UsefulSNVsParams,
-    ) -> HashMap<RefCoord, (char, u8)>;
+    ) -> RapidHashMap<RefCoord, (char, u8)>;
 }
 
 impl GetReadSNVs for STRkitAlignedSegment {
@@ -511,7 +511,7 @@ impl GetReadSNVs for STRkitAlignedSegment {
         tr_start_pos: RefCoord,
         tr_end_pos: RefCoord,
         useful_snvs_params: &UsefulSNVsParams,
-    ) -> HashMap<RefCoord, (char, u8)> {
+    ) -> RapidHashMap<RefCoord, (char, u8)> {
         // Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
         // surrounded by a stretch of aligned bases of a specified size on either side.
         // Returns a hash map of <reference position, base>
@@ -575,8 +575,8 @@ pub fn calculate_useful_snvs(
     block_segments: &STRkitLocusBlockSegments,
     read_dict_extra: Bound<'_, PyDict>,
     read_locus_alignment_data: &Bound<'_, PyDict>,
-    read_snvs: HashMap<String, HashMap<RefCoord, (char, u8)>>,
-    locus_snvs: HashSet<RefCoord>,
+    read_snvs: RapidHashMap<String, RapidHashMap<RefCoord, (char, u8)>>,
+    locus_snvs: RapidHashSet<RefCoord>,
     min_allele_reads: usize,
 ) -> Result<Vec<(usize, RefCoord)>, PyErr> {
     // Mutates read_dict_extra - adds snv_bases keys to read entries
@@ -586,10 +586,10 @@ pub fn calculate_useful_snvs(
     let mut sorted_snvs: Vec<RefCoord> = locus_snvs.into_iter().collect();
     sorted_snvs.sort();
 
-    let mut snv_counters: HashMap<u64, HashMap<char, usize>> =
+    let mut snv_counters: RapidHashMap<u64, RapidHashMap<char, usize>> =
         sorted_snvs
             .iter()
-            .map(|&s| (s, HashMap::new()))
+            .map(|&s| (s, RapidHashMap::default()))
             .collect();
 
     for rn in read_dict_extra.keys().into_iter().map(|x| x.cast_into::<PyString>().unwrap()) {

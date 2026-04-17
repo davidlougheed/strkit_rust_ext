@@ -5,7 +5,7 @@ use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedStr;
 use pyo3::types::PyString;
-use std::collections::HashSet;
+use rapidhash::fast::RapidHashSet;
 // use std::io::BufWriter;
 use std::ops::Deref;
 
@@ -57,7 +57,7 @@ pub fn consensus_seq<'py>(
 
     let mut seqs_no_blanks: Vec<PyBackedStr> = seqs.into_iter().filter(|x| !x.is_empty()).collect();
 
-    let seqs_set = HashSet::<&PyBackedStr>::from_iter(seqs_no_blanks.iter());
+    let seqs_set = RapidHashSet::<&PyBackedStr>::from_iter(seqs_no_blanks.iter());
 
     match seqs_set.len() {
         // With 1 sequence in the set, return it as the single value (if no blanks also present), or the majority value

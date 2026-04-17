@@ -32,6 +32,7 @@ spoa_rs = { git = "https://github.com/davidlougheed/spoa-rs.git", rev = "0c433c7
 # trlib = { git = "ssh://git@github.com/davidlougheed/trlib.git" }
 smallvec = "1.15.1"
 thiserror = "2.0.18"
+rapidhash = { version = "4.4.1", features = ["unsafe"] } # unsafe is faster; why go slow?
 
 [profile.release]
 lto = true

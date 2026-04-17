@@ -2,6 +2,7 @@ use bincode;
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyString};
+use rapidhash::fast::{RapidHasher, RapidHashMap, RapidHashSet};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -571,8 +572,8 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
 
     // Mutates: read_dict_extra (via call to calculate_useful_snvs)
 
-    let mut locus_snvs: HashSet<RefCoord> = HashSet::new();
-    let mut read_snvs: HashMap<String, HashMap<RefCoord, (char, u8)>> = HashMap::new();
+    let mut locus_snvs: RapidHashSet<RefCoord> = RapidHashSet::default();
+    let mut read_snvs: RapidHashMap<String, RapidHashMap<RefCoord, (char, u8)>> = RapidHashMap::default();
 
     // below: magic values for skipping false positives / weird 'SNVs' that aren't helpful
     let useful_snvs_params = UsefulSNVsParams {
@@ -630,7 +631,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
             continue;
         }
 
-        let snvs: HashMap<RefCoord, (char, u8)> = segment.get_read_snvs(
+        let snvs: RapidHashMap<RefCoord, (char, u8)> = segment.get_read_snvs(
             ref_cache,
             // aligned coords without clipping at ends
             &aligned_coords.query_coords[scl..(coords_len - scr)],

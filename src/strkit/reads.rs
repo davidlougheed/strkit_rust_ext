@@ -3,13 +3,13 @@ use numpy::{PyArray1, ToPyArray};
 use pyo3::exceptions::{PyException, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
+use rapidhash::{RapidHashMap, RapidHashSet};
 use rust_htslib::bam::ext::BamRecordExtensions;
 use rust_htslib::bam::record::{Aux, Record};
 use rust_htslib::bam::{IndexedReader, Read};
 use rust_htslib::errors::Error as RustHTSlibError;
 use rust_lapper::{Interval, Lapper};
 use std::cmp;
-use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::aligned_coords::STRkitAlignedCoords;
@@ -359,7 +359,7 @@ pub struct STRkitLocusSegments {
     #[pyo3(get)]
     n_segments: usize,
     read_lengths: Vec<usize>,
-    chimeric_read_status: HashMap<String, u8>,
+    chimeric_read_status: RapidHashMap<String, u8>,
     #[pyo3(get)]
     left_most_coord: u64,
     #[pyo3(get)]
@@ -398,7 +398,7 @@ pub struct STRkitLocusBlockSegments {
     right_most_coord: u64,
     pub segments: Vec<Py<STRkitAlignedSegment>>,
     // hash map of read name to index for fast lookup of segment sequence/query qualities:
-    pub name_index_lookup: HashMap<String, usize>,
+    pub name_index_lookup: RapidHashMap<String, usize>,
     tree: Mutex<Lapper<usize, usize>>,
     logger: Option<Py<PyAny>>,
     // params:
@@ -428,8 +428,8 @@ impl STRkitLocusBlockSegments {
 
         let mut segments: Vec<Py<STRkitAlignedSegment>> = Vec::new();
         let mut read_lengths: Vec<usize> = Vec::new();
-        let mut chimeric_read_status: HashMap<String, u8> = HashMap::new();
-        let mut seen_reads: HashSet<String> = HashSet::new();
+        let mut chimeric_read_status: RapidHashMap<String, u8> = RapidHashMap::default();
+        let mut seen_reads: RapidHashSet<String> = RapidHashSet::default();
 
         // Fetch every segment (interval from the tree) which OVERLAPS [locus left flank coord, locus right flank coord]
         for i in tree.find(loc.left_flank_coord as usize, (loc.right_flank_coord as usize) + 1) {
@@ -595,7 +595,7 @@ impl STRkitBAMReader {
         let mut right_most_coord = 0u64;
 
         let mut segments: Vec<Py<STRkitAlignedSegment>> = Vec::new();
-        let mut name_index_lookup: HashMap<String, usize> = HashMap::new(); // doubles as seen reads hashset
+        let mut name_index_lookup: RapidHashMap<String, usize> = RapidHashMap::default(); // doubles as seen reads hashset
         let mut intervals: Vec<Interval<usize, usize>> = Vec::new();
 
         let mut record = Record::new();
