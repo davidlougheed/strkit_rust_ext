@@ -4,8 +4,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyString};
 use rapidhash::fast::{RapidHasher, RapidHashMap, RapidHashSet};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::hash::{Hash, Hasher};
 
 use crate::aligned_coords::STRkitAlignedCoords;
 use crate::reads::STRkitAlignedSegment;
@@ -15,7 +14,9 @@ use crate::snvs::{CandidateSNVs, GetReadSNVs, UsefulSNVsParams, calculate_useful
 use crate::coords::{QueryCoord, RefCoord};
 
 
-#[derive(Clone, Deserialize, Hash, Serialize)]
+const HASH_SEED: u64 = 0;
+
+#[derive(Clone, Deserialize, Serialize)]
 #[pyclass(from_py_object, module = "strkit_rust_ext")]
 pub struct STRkitLocus {
     #[pyo3(get)]
@@ -115,7 +116,8 @@ impl STRkitLocus {
 
     fn __hash__(&self) -> u64 {
         // Implement hash by hand, as we cannot have a frozen PyO3 class here due to the pickling stuff.
-        let mut hasher = DefaultHasher::new();
+        // Just use locus index, locus id, contig, start, end motif - don't include annotations
+        let mut hasher = RapidHasher::new(HASH_SEED);
         self.hash(&mut hasher);
         hasher.finish()
     }
@@ -195,6 +197,17 @@ impl STRkitLocus {
             self.flank_size,
             self.annotations.clone(),
         ))
+    }
+}
+
+impl Hash for STRkitLocus {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write(&self.t_idx.to_le_bytes());
+        state.write(&self.locus_id.as_bytes());
+        state.write(&self.contig.as_bytes());
+        state.write(&self.left_coord.to_le_bytes());
+        state.write(&self.right_coord.to_le_bytes());
+        state.write(&self.motif.as_bytes());
     }
 }
 
