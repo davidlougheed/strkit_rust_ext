@@ -1,6 +1,7 @@
 mod strkit;
 
 pub use crate::strkit::aligned_coords;
+pub use crate::strkit::call;
 pub use crate::strkit::cigar;
 pub use crate::strkit::consensus;
 pub use crate::strkit::coords;
@@ -17,6 +18,9 @@ use pyo3::prelude::*;
 #[pyo3(name = "strkit_rust_ext")]
 fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<aligned_coords::STRkitAlignedCoords>()?;
+
+    m.add_class::<call::CallData>()?;
+    m.add_function(wrap_pyfunction!(call::combine_call_data, m)?)?;
 
     m.add_function(wrap_pyfunction!(cigar::get_aligned_pair_matches, m)?)?;
 

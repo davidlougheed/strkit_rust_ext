@@ -102,7 +102,7 @@ impl STRkitLocus {
 
     pub fn log_str(&self) -> &str { &self._log_str }
 
-    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let res = PyDict::new(py);
         res.set_item("locus_index", self.t_idx)?;
         res.set_item("locus_id", self.locus_id.clone())?;

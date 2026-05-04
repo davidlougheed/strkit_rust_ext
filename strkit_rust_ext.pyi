@@ -1,7 +1,7 @@
 import numpy
 from logging import Logger
 from numpy.typing import NDArray
-from typing import Literal, Optional, Sequence, Union
+from typing import Literal, Optional, Self, Sequence
 
 # aligned_coords
 
@@ -9,7 +9,7 @@ class STRkitAlignedCoords:
     query_coords: list[int]
     ref_coords: list[int]
 
-    def __init__(self, query_coords: NDArray[numpy.uint64], ref_coords: NDArray[numpy.uint64]): ...
+    def __init__(self, query_coords: NDArray[numpy.uint64], ref_coords: NDArray[numpy.uint64]) -> Self: ...
 
     def __len__(self) -> int: ...
 
@@ -18,6 +18,42 @@ class STRkitAlignedCoords:
     def pair_at_idx(self, idx: int) -> tuple[int, int]: ...
 
     def find_coord_idx_by_ref_pos(self, target: int, start_left: int) -> tuple[int, bool]: ...
+
+
+# call
+
+class CallData:
+    call: NDArray[numpy.int32]
+    call_95_cis: NDArray[numpy.int32]
+    call_99_cis: NDArray[numpy.int32]
+
+    peak_means: NDArray[numpy.float64]
+    peak_weights: NDArray[numpy.float64]
+    peak_stdevs: NDArray[numpy.float64]
+    peak_modal_n: int
+
+    def __init__(
+        self,
+        call: NDArray[numpy.int32],
+        call_95_cis: NDArray[numpy.int32],
+        call_99_cis: NDArray[numpy.int32],
+        means: NDArray[numpy.float64],
+        weights: NDArray[numpy.float64],
+        stdevs: NDArray[numpy.float64],
+        modal_n: int,
+    ) -> Self:
+        ...
+
+    def set_n_reads(self, n_reads: NDArray[numpy.uint16]): ...
+    def set_kmers(self, kmers: list[dict[str, int]]): ...
+    def set_seqs(self, seqs: list[tuple[str, str]], start_anchor_seqs: list[tuple[str, str]]): ...
+    def set_ps(self, ps: int): ...
+    def reverse(self): ...
+
+    def to_dict(self) -> dict: ...
+
+
+def combine_call_data(calls: list[CallData]) -> CallData: ...
 
 
 # consensus

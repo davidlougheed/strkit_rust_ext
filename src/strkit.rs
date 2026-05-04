@@ -1,4 +1,5 @@
 pub mod aligned_coords;
+pub mod call;
 pub mod cigar;
 pub mod consensus;
 pub mod coords;
