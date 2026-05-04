@@ -464,15 +464,13 @@ fn _get_read_coords_from_matched_pairs(
             // Coordinate here is exclusive - we don't want to include a gap between the flanking region and
             // the STR; if we include the left-most base of the STR, we will have a giant flanking region which
             // will include part of the tandem repeat itself.
-            let lfe = query_coord + 1; // Add 1 to make it exclusive
-
+            left_flank_end = Some(query_coord + 1); // Add 1 to make it exclusive
+        } else if ref_coord >= locus_with_ref_data.left_coord_adj && ref_coord < locus_with_ref_data.right_coord_adj {
             // Even if we're allowed to have a small flank (allow_only_one_full_flank), we still require a flanking
             // region large enough to anchor the sequence in the VCF output.
-            if lfe - left_flank_start < vcf_anchor_size {
+            if let Some(lfe) = left_flank_end && lfe - left_flank_start < vcf_anchor_size {
                 return LocusReadCoords::new_all_incomplete();
             }
-
-            left_flank_end = Some(lfe);
         } else if ref_coord >= locus_with_ref_data.right_coord_adj
             && (
                 // Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
