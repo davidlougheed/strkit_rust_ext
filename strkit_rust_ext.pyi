@@ -212,6 +212,18 @@ class STRkitVCFReader:
     def get_candidate_snvs(self, locus_block: STRkitLocusBlock) -> CandidateSNVs: ...
 
 
+class CalledSNV:
+    call: tuple[str, ...]
+    rcs: tuple[int, ...]
+    dp: int
+    ref_base: Optional[str]
+
+    def __init__(self, id: str, pos: int, call: tuple[str, ...], rcs: tuple[int, ...], ref_base: Optional[str]): ...
+    def __repr__(self) -> str: ...
+
+    def reverse(): ...
+
+
 def shannon_entropy(
     seq: bytes,
 ) -> float: ...

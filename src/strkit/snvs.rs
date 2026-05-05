@@ -3,6 +3,7 @@ use pyo3::exceptions::PyException;
 use pyo3::exceptions::PyValueError;
 use pyo3::intern;
 use pyo3::prelude::*;
+use pyo3::types::PyTuple;
 use pyo3::types::{PyBytes, PyDict, PyString};
 use rapidhash::fast::{RapidHashMap, RapidHashSet};
 use regex::Regex;
@@ -69,6 +70,75 @@ impl CandidateSNVs {
     fn get_snv_ref_base(&self, pos: RefCoord) -> Option<char> {
         // TODO: rust: just do a normal .get + use reference to ref base
         self.snvs.get(&pos).map(|c| c.ref_base)
+    }
+}
+
+
+#[pyclass]
+pub struct CalledSNV {
+    #[pyo3(get)]
+    id: String,
+    #[pyo3(get)]
+    pos: usize,
+    // rec: CandidateSNV, // TODO: rust: make this a borrow or something
+    call: Vec<char>,
+    rcs: Vec<u8>,  // Counts of reads per call index
+    #[pyo3(get)]
+    ref_base: Option<char>,
+}
+
+#[pymethods]
+impl CalledSNV {
+    #[new]
+    fn py_new(id: String, pos: usize, call: Vec<char>, rcs: Vec<u8>, ref_base: Option<char>) -> PyResult<Self> {
+        Ok(CalledSNV { id, pos, call, rcs, ref_base })
+    }
+
+    #[getter]
+    fn call<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let res = PyTuple::new(py, &self.call)?;
+        Ok(res)
+    }
+
+    #[getter]
+    fn rcs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let res = PyTuple::new(py, &self.rcs)?;
+        Ok(res)
+    }
+
+    #[getter]
+    fn dp(&self) -> usize {
+        self.rcs.iter().map(|&r| r as usize).sum()
+    }
+
+    fn reverse(&mut self) {
+        self.call.reverse();
+        self.rcs.reverse();
+    }
+
+    pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let res = PyDict::new(py);
+
+        let call = PyTuple::new(py, self.call.iter())?;
+        let rcs = PyTuple::new(py, self.rcs.iter())?;
+
+        res.set_item("id", &self.id)?;
+        res.set_item("pos", self.pos)?;
+        res.set_item("call", call)?;
+        res.set_item("rcs", rcs)?;
+
+        if let Some(ref_base) = self.ref_base {
+            res.set_item("ref", ref_base)?;
+        }
+
+        Ok(res)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<CalledSNV id={} pos={} call={:?}, ref_base={}>",
+            self.id, self.pos, self.call, self.ref_base.map_or_else(|| String::new(), |r| r.to_string())
+        )
     }
 }
 

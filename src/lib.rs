@@ -45,6 +45,7 @@ fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(repeats::get_repeat_count, m)?)?;
 
     m.add_class::<snvs::CandidateSNVs>()?;
+    m.add_class::<snvs::CalledSNV>()?;
     m.add_class::<snvs::STRkitVCFReader>()?;
     m.add_function(wrap_pyfunction!(snvs::shannon_entropy, m)?)?;
 
