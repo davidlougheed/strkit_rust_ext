@@ -1,4 +1,5 @@
 import numpy
+from enum import Enum
 from logging import Logger
 from numpy.typing import NDArray
 from typing import Literal, Optional, Self, Sequence
@@ -22,6 +23,16 @@ class STRkitAlignedCoords:
 
 # call
 
+class AssignMethod(Enum):
+    Dist = 0
+    SNV = 1
+    SNVAndDist = 2
+    Single = 3
+    HP = 4
+
+    def as_str(self) -> str: ...
+
+
 class CallData:
     call: NDArray[numpy.int32]
     call_95_cis: NDArray[numpy.int32]
@@ -31,6 +42,8 @@ class CallData:
     peak_weights: NDArray[numpy.float64]
     peak_stdevs: NDArray[numpy.float64]
     peak_modal_n: int
+
+    ps: int | None
 
     def __init__(
         self,
@@ -44,9 +57,13 @@ class CallData:
     ) -> Self:
         ...
 
+    def get_peaks_dict(self) -> dict: ...
+    def get_assign_method_str(self) -> str: ...
+
     def set_n_reads(self, n_reads: NDArray[numpy.uint16]): ...
     def set_kmers(self, kmers: list[dict[str, int]]): ...
     def set_seqs(self, seqs: list[tuple[str, str]], start_anchor_seqs: list[tuple[str, str]]): ...
+    def set_assign_method(self, assign_method: AssignMethod): ...
     def set_ps(self, ps: int): ...
     def reverse(self): ...
 

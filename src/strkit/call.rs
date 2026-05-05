@@ -7,6 +7,30 @@ use smallvec::SmallVec;
 
 pub type SeqAndConsensusMethod = (String, String); // TODO: enum for consensus method
 
+/// Read-allele assignment method: how reads were assigned to particular alleles
+#[pyclass(eq, eq_int, from_py_object)]
+#[derive(Clone, PartialEq)]
+pub enum AssignMethod {
+    Dist = 0, // Slight misnomer, should be GMM
+    SNV = 1, // Using flanking SNVs
+    SNVAndDist = 2, // Using a distance metric combining copy number and SNVs
+    Single = 3, // Haploid locus, only one allele
+    HP = 4, // Haplotagged reads
+}
+
+#[pymethods]
+impl AssignMethod {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AssignMethod::Dist => "dist",
+            AssignMethod::SNV => "snv",
+            AssignMethod::SNVAndDist => "snv+dist",
+            AssignMethod::Single => "single",
+            AssignMethod::HP => "hp",
+        }
+    }
+}
+
 pub struct CallPeaksData {
     pub means: SmallVec<[f64; 2]>,
     pub weights: SmallVec<[f64; 2]>,
@@ -51,6 +75,8 @@ pub struct CallData {
     pub call_95_cis: SmallVec<[(i32, i32); 2]>,
     pub call_99_cis: SmallVec<[(i32, i32); 2]>,
     pub peaks: CallPeaksData,
+    pub assign_method: Option<AssignMethod>,
+    #[pyo3(get)]
     pub ps: Option<i32>,  // phase set
 }
 
@@ -92,6 +118,7 @@ impl CallData {
                 seqs: None,
                 start_anchor_seqs: None,
             },
+            assign_method: None,
             ps: None,
         })
     }
@@ -125,6 +152,14 @@ impl CallData {
     #[getter]
     fn peak_modal_n(&self) -> u8 { self.peaks.modal_n }
 
+    fn get_peaks_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        self.peaks.to_dict(py)
+    }
+
+    fn get_assign_method_str(&self) -> &'static str {
+        self.assign_method.as_ref().map_or("none", |am| am.as_str())
+    }
+
     fn set_n_reads<'py>(&mut self, n_reads: Bound<'py, PyArray1<u16>>) {
         self.peaks.n_reads = Some(bound_pyarray_to_smallvec2(n_reads));
     }
@@ -136,6 +171,10 @@ impl CallData {
     fn set_seqs(&mut self, seqs: Vec<SeqAndConsensusMethod>, start_anchor_seqs: Vec<SeqAndConsensusMethod>) {
         self.peaks.seqs = Some(seqs);
         self.peaks.start_anchor_seqs = Some(start_anchor_seqs);
+    }
+
+    fn set_assign_method(&mut self, assign_method: AssignMethod) {
+        self.assign_method = Some(assign_method);
     }
 
     fn set_ps(&mut self, ps: i32) {
@@ -164,6 +203,7 @@ impl CallData {
         res.set_item("call_95_cis", self.call_95_cis.as_slice())?;
         res.set_item("call_99_cis", self.call_99_cis.as_slice())?;
         res.set_item("peaks", self.peaks.to_dict(py)?)?;
+        res.set_item("assign_method", self.assign_method.as_ref().map(|am| am.as_str()))?;
         res.set_item("ps", self.ps)?;
         Ok(res)
     }
@@ -171,10 +211,11 @@ impl CallData {
 
 /// Combines multiple CallData structs together
 #[pyfunction]
-pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> CallData {
+pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> PyResult<CallData> {
     let mut call: SmallVec<[i32; 2]> = SmallVec::new();
     let mut call_95_cis: SmallVec<[(i32, i32); 2]> = SmallVec::new();
     let mut call_99_cis: SmallVec<[(i32, i32); 2]> = SmallVec::new();
+    let mut assign_method: Option<AssignMethod> = None;
 
     let mut means: SmallVec<[f64; 2]> = SmallVec::new();
     let mut weights: SmallVec<[f64; 2]> = SmallVec::new();
@@ -190,6 +231,15 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> CallData {
         call.extend_from_slice(&call_data.call);
         call_95_cis.extend_from_slice(&call_data.call_95_cis);
         call_99_cis.extend_from_slice(&call_data.call_99_cis);
+
+        if let Some(am) = &call_data.assign_method {
+            if assign_method.is_none() {
+                assign_method = Some(am.clone());
+            } else if let Some(am2) = &assign_method && am != am2 {
+                return Err(PyException::new_err("mismatch in assignment methods"));
+            }
+        }
+
         means.extend_from_slice(&call_data.peaks.means);
         weights.extend_from_slice(&call_data.peaks.weights);
         stdevs.extend_from_slice(&call_data.peaks.stdevs);
@@ -225,7 +275,7 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> CallData {
         weights[i] /= wsum;
     }
 
-    CallData {
+    Ok(CallData {
         call,
         call_95_cis,
         call_99_cis,
@@ -239,6 +289,7 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> CallData {
             seqs,
             start_anchor_seqs,
         },
+        assign_method,
         ps: None,
-    }
+    })
 }

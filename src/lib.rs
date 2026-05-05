@@ -19,6 +19,7 @@ use pyo3::prelude::*;
 fn strkit_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<aligned_coords::STRkitAlignedCoords>()?;
 
+    m.add_class::<call::AssignMethod>()?;
     m.add_class::<call::CallData>()?;
     m.add_function(wrap_pyfunction!(call::combine_call_data, m)?)?;
 
