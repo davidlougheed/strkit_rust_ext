@@ -1,9 +1,12 @@
 use once_cell::sync::Lazy;
 use parasail_rs::prelude::{Aligner, Matrix, Profile};
-use pyo3::pyfunction;
+use pyo3::exceptions::PyException;
+use pyo3::prelude::*;
 use rapidhash::fast::{RapidHashMap, RapidHashSet};
 use strsim::levenshtein;
 use std::{borrow::Borrow, cmp};
+use trlib::decomposition::MotifSequenceDecomposer;
+use trlib::motif::MotifSet;
 
 const MATCH_SCORE: i32 = 2;
 const MISMATCH_SCORE: i32 = -7;
@@ -231,4 +234,17 @@ pub fn get_repeat_count(
     }
 
     ((best_size, best_score), n_explored, best_size - start_count)
+}
+
+#[pyfunction]
+pub fn get_repeat_count_compostr(tr_seq: &str, motif: &str) -> PyResult<(usize, i32)> {
+    // TODO: include flank seq, examine CIGAR to determine adjustments left/right
+
+    let ms = MotifSet::new_from_strs(&[motif]);
+    let decomp = MotifSequenceDecomposer::new(
+        ms, 4, -4, INDEL_PENALTY, Some(-1)
+    ).map_err(|e| PyException::new_err(e.to_string()))?;
+    let tr_seq_bytes = tr_seq.as_bytes();
+    let res = decomp.decompose(tr_seq_bytes).map_err(|e| PyException::new_err(e.to_string()))?;
+    Ok((res.copies, res.score))
 }
