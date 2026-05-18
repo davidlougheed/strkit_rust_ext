@@ -1658,7 +1658,7 @@ checksum = "22048bc95dfb2ffd05b1ff9a756290a009224b60b2f0e7525faeee7603851e63"
 [[package]]
 name = "trlib"
 version = "0.1.0"
-source = "git+ssh://git@github.com/davidlougheed/compostr.git#08651275c62fba1b2a5ccc70229dae1b7d362fb7"
+source = "git+https://github.com/davidlougheed/compostr.git#ae75a4cc7e07aca14036a25735970934b0b8de54"
 dependencies = [
  "ndarray 0.17.2",
  "once_cell",
