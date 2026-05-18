@@ -328,6 +328,15 @@ impl STRkitLocusBlock {
 }
 
 
+#[derive(Debug)]
+enum LocusReadCoordsFailReason {
+    LhsIncomplete,
+    LhsLessThanAnchorSize,
+    LhsMissing,
+    RhsIncomplete,
+    RhsMissing,
+}
+
 #[pyclass]
 pub struct LocusReadCoords {
     #[pyo3(get)]
@@ -342,12 +351,12 @@ pub struct LocusReadCoords {
     pub full_left_flank: bool,
     #[pyo3(get)]
     pub full_right_flank: bool,
+    // ---
+    fail_reason: Option<LocusReadCoordsFailReason>,
 }
 
-#[pymethods]
 impl LocusReadCoords {
-    #[staticmethod]
-    pub fn new_all_incomplete() -> Self {
+    fn new_all_incomplete(fail_reason: Option<LocusReadCoordsFailReason>) -> Self {
         return LocusReadCoords {
             left_flank_start: None,
             left_flank_end: None,
@@ -355,9 +364,13 @@ impl LocusReadCoords {
             right_flank_end: None,
             full_left_flank: false,
             full_right_flank: false,
+            fail_reason,
         };
     }
+}
 
+#[pymethods]
+impl LocusReadCoords {
     pub fn is_incomplete(&self) -> bool {
         return self.left_flank_start.is_none()
             || self.left_flank_end.is_none()
@@ -367,13 +380,14 @@ impl LocusReadCoords {
 
     pub fn __repr__(&self) -> String {
         format!(
-            "<LocusReadCoords {:?} {:?} {:?} {:?} {} {}>",
+            "<LocusReadCoords {:?} {:?} {:?} {:?} {} {} fail_reason={:?}>",
             self.left_flank_start,
             self.left_flank_end,
             self.right_flank_start,
             self.right_flank_end,
             self.full_left_flank,
             self.full_right_flank,
+            self.fail_reason,
         )
     }
 }
@@ -409,7 +423,7 @@ fn _get_read_coords_from_matched_pairs(
             if !allow_only_one_full_flank {
                 // Completely out of bounds (either right at the start or inserting after the end) and we require both
                 // flanking sequences in their entirety.
-                return LocusReadCoords::new_all_incomplete();
+                return LocusReadCoords::new_all_incomplete(Some(LocusReadCoordsFailReason::LhsIncomplete));
             }
         } else {
             // Choose pair to the left of where we'd insert the pair to maintain sorted order, since we want the closest
@@ -469,7 +483,7 @@ fn _get_read_coords_from_matched_pairs(
             // Even if we're allowed to have a small flank (allow_only_one_full_flank), we still require a flanking
             // region large enough to anchor the sequence in the VCF output.
             if let Some(lfe) = left_flank_end && lfe - left_flank_start < vcf_anchor_size {
-                return LocusReadCoords::new_all_incomplete();
+                return LocusReadCoords::new_all_incomplete(Some(LocusReadCoordsFailReason::LhsLessThanAnchorSize));
             }
         } else if ref_coord >= locus_with_ref_data.right_coord_adj
             && (
@@ -491,7 +505,7 @@ fn _get_read_coords_from_matched_pairs(
             if left_flank_end.is_none() {
                 // no left flank at all, early return error
                 // TODO: in future: partial supporting read instead
-                return LocusReadCoords::new_all_incomplete();
+                return LocusReadCoords::new_all_incomplete(Some(LocusReadCoordsFailReason::LhsMissing));
             }
             right_flank_start = Some(query_coord);
         } else if ref_coord >= locus_with_ref_data.locus_def.right_flank_coord || (
@@ -532,6 +546,11 @@ fn _get_read_coords_from_matched_pairs(
         right_flank_end,
         full_left_flank,
         full_right_flank,
+        fail_reason: if right_flank_start.is_none() {
+            Some(LocusReadCoordsFailReason::RhsMissing)
+        } else if !allow_only_one_full_flank && right_flank_end.is_none() {
+            Some(LocusReadCoordsFailReason::RhsIncomplete)
+        } else { None },
     }
 }
 
