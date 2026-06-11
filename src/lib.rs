@@ -1,6 +1,7 @@
 mod strkit;
 
 pub use crate::strkit::aligned_coords;
+pub use crate::strkit::base_mod;
 pub use crate::strkit::call;
 pub use crate::strkit::cigar;
 pub use crate::strkit::consensus;
