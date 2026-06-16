@@ -13,6 +13,7 @@ use std::cmp;
 use std::sync::{Arc, Mutex};
 
 use crate::aligned_coords::STRkitAlignedCoords;
+use crate::base_mod::{BaseModifications, build_modified_bases_tree};
 use crate::cigar::{decode_cigar_item, get_aligned_pair_matches_rs};
 use crate::coords::RefCoord;
 use crate::exceptions::LowMeanBaseQual;
@@ -143,6 +144,9 @@ pub struct STRkitAlignedSegment {
     ps: Option<i64>,
     #[pyo3(get)]
     ps_remapped: Option<i64>,
+    // ---
+    // data structures of (cytosine query coord, 0-255 methylation probability):
+    pub methylation: Option<BaseModifications>,
 }
 
 fn _extract_i64_tag_value(a: Result<Aux<'_>, RustHTSlibError>) -> Option<i64> {
@@ -523,6 +527,7 @@ pub struct STRkitBAMReader {
     skip_supp: bool,
     skip_sec: bool,
     use_hp: bool,
+    use_methyl: bool,
     significant_clip_threshold: u64,
     contig_names: Vec<String>,
     any_contig_name_has_chr: bool,
@@ -545,6 +550,7 @@ impl STRkitBAMReader {
         skip_supp: bool,
         skip_sec: bool,
         use_hp: bool,
+        use_methyl: bool,
         significant_clip_threshold: u64,
         logger: Bound<PyAny>,
         debug_logs: bool,
@@ -569,6 +575,7 @@ impl STRkitBAMReader {
                 skip_supp,
                 skip_sec,
                 use_hp,
+                use_methyl,
                 significant_clip_threshold,
                 contig_names,
                 any_contig_name_has_chr,
@@ -655,6 +662,14 @@ impl STRkitBAMReader {
 
                     // -------------------------------------------------------------------------------------------------
 
+                    let methylation = if self.use_methyl {
+                        Some(build_modified_bases_tree(&record))
+                    } else {
+                        None
+                    };
+
+                    // -------------------------------------------------------------------------------------------------
+
                     let aligned_segment = STRkitAlignedSegment {
                         name,
                         length,
@@ -678,6 +693,8 @@ impl STRkitBAMReader {
                         hp: if self.use_hp { _extract_i64_tag_value(record.aux(b"HP")) } else { None },
                         ps: if self.use_hp { _extract_i64_tag_value(record.aux(b"PS")) } else { None },
                         ps_remapped: None,
+                        // --- methylation data:
+                        methylation,
                     };
 
                     let nc = aligned_segment.name.clone();
