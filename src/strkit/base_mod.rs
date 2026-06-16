@@ -1,20 +1,22 @@
+use rust_lapper::{Interval, Lapper};
+
 use crate::coords::QueryCoord;
 
 pub struct BaseModifications {
-
+    pub tree: Lapper<QueryCoord, u8>, // For fast range lookups of base modifications
 }
 
 /// Expands MM/ML-tag-formatted modified bases TODO:
-pub fn expand_modified_bases(seq: &str, unmod: &[usize], prob: &[u8]) -> Vec<(QueryCoord, u8)> {
+pub fn expand_modified_bases(seq: &str, unmod: &[usize], prob: &[u8]) -> BaseModifications {
     if prob.len() == 0 {
-        return Vec::new();
+        return BaseModifications { tree: Lapper::new(Vec::new()) };
     }
 
     let mut queue_ptr = 0;
     let mut prob_ptr = 0;
     let mut counter = 0;
 
-    let mut res = Vec::with_capacity(unmod.len());
+    let mut intervals: Vec<Interval<QueryCoord, u8>> = Vec::with_capacity(unmod.len());
 
     let mut current_unmod_count = unmod[queue_ptr];
 
@@ -28,7 +30,10 @@ pub fn expand_modified_bases(seq: &str, unmod: &[usize], prob: &[u8]) -> Vec<(Qu
             continue;
         }
 
-        res.push((ch_idx as QueryCoord, prob[prob_ptr]));
+        let coord = ch_idx as QueryCoord;
+        let prob_val = prob[prob_ptr];
+
+        intervals.push(Interval { start: coord, stop: coord + 1, val: prob_val });
 
         // update unmodified base count slice pointer (move onto the next count of unmodified bases)
         queue_ptr += 1;
@@ -37,9 +42,7 @@ pub fn expand_modified_bases(seq: &str, unmod: &[usize], prob: &[u8]) -> Vec<(Qu
         counter = 0;
     }
 
-    // TODO: interval tree
-
-    res
+    BaseModifications { tree: Lapper::new(intervals) }
 }
 
 #[cfg(test)]
