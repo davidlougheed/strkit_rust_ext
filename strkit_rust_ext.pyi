@@ -350,6 +350,7 @@ class STRkitBAMReader:
         skip_supp: bool,
         skip_sec: bool,
         use_hp: bool,
+        use_methyl: bool,
         significant_clip_threshold: int,
         logger: Logger,
         debug_logs: bool,
