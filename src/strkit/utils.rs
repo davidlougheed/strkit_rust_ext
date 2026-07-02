@@ -51,9 +51,9 @@ pub fn normalize_contig_py(contig: PyBackedStr, has_chr: bool) -> String {
     normalize_contig(&contig, has_chr)
 }
 
-pub fn calc_motif_size_kmers(tr_read_seq_wc: &str, tr_len: usize, motif_size: u16) -> Vec<&str> {
+pub fn calc_motif_size_kmers(tr_read_seq_wc: &str, tr_len: usize, motif_size: u16) -> impl Iterator<Item = &str> {
     let ms = motif_size as usize;
-    (0..tr_len-ms+1).map(|i| &tr_read_seq_wc[i..i+ms]).collect()
+    (0..tr_len-ms+1).map(move |i| &tr_read_seq_wc[i..i+ms])
 }
 
 #[cfg(test)]
@@ -83,6 +83,6 @@ mod test {
 
     #[test]
     fn test_calc_motif_size_kmers() {
-        assert_eq!(calc_motif_size_kmers("CACACACTCA", 10, 2), vec!["CA", "AC", "CA", "AC", "CA", "AC", "CT", "TC", "CA"]);
+        assert_eq!(calc_motif_size_kmers("CACACACTCA", 10, 2).collect::<Vec<&str>>(), vec!["CA", "AC", "CA", "AC", "CA", "AC", "CT", "TC", "CA"]);
     }
 }

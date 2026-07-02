@@ -1,8 +1,10 @@
+use counter::Counter;
 use numpy::ndarray::{Array1, s};
 use numpy::{PyArray1, ToPyArray};
 use pyo3::exceptions::{PyException, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
+use pyo3::types::{IntoPyDict, PyDict};
 use rapidhash::{RapidHashMap, RapidHashSet};
 use rust_htslib::bam::ext::BamRecordExtensions;
 use rust_htslib::bam::record::{Aux, Record};
@@ -89,7 +91,13 @@ impl STRkitAlignedSegmentSequenceDataForLocus {
     /// For updating read k-mers counter:
     ///  TODO: refact as iterator
     fn get_motif_size_kmers(&self) -> Vec<&str> {
-        calc_motif_size_kmers(&self.tr_seq_wc, self.tr_len, self._motif_size)
+        calc_motif_size_kmers(&self.tr_seq_wc, self.tr_len, self._motif_size).collect()
+    }
+
+    /// Counts motif-sized kmers and returns a Python dictionary of counts
+    fn count_motif_size_kmers<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let counts = calc_motif_size_kmers(&self.tr_seq_wc, self.tr_len, self._motif_size).collect::<Counter<_>>();
+        counts.into_py_dict(py)
     }
 
     /// Pretty basic - divides TR-aligned sequence length by the motif size to get the estimated copy number.
