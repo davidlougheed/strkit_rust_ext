@@ -249,6 +249,7 @@ def get_aligned_pair_matches(
     cigar: NDArray[numpy.uint32],
     query_start: int,
     ref_start: int,
+    swap: bool,
 ) -> STRkitAlignedCoords: ...
 
 

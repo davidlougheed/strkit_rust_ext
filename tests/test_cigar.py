@@ -5,6 +5,11 @@ from .cigar import get_aligned_pairs_from_cigar
 
 def test_cigar():
     pairs1 = list(get_aligned_pairs_from_cigar(CIGAR_OPS, 0, 100000, True))
-    ac = get_aligned_pair_matches(CIGAR_OPS, 0, 100000)
+
+    ac = get_aligned_pair_matches(CIGAR_OPS, 0, 100000, False)
     pairs2 = list(zip(ac.query_coords, ac.ref_coords))
     assert pairs1 == pairs2
+
+    ac = get_aligned_pair_matches(CIGAR_OPS, 0, 100000, True)
+    pairs3 = list(zip(ac.ref_coords, ac.query_coords))
+    assert pairs1 == pairs3

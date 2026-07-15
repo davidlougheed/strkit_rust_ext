@@ -3,6 +3,7 @@ use numpy::{PyArray1, PyArrayMethods};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use serde::{Deserialize, Serialize};
+use std::mem;
 
 use crate::coords::{QueryCoord, RefCoord};
 
@@ -45,6 +46,10 @@ impl STRkitAlignedCoords {
         let idx = start_left + self.ref_coords[start_left..].partition_point(|&x| x < t);
         let found = idx < self.ref_coords.len() && self.ref_coords[idx] == t;
         (idx, found)
+    }
+
+    pub fn swap(&mut self) {
+        mem::swap(&mut self.query_coords, &mut self.ref_coords);
     }
 
     pub fn __len__(&self) -> usize {
