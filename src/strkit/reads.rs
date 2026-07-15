@@ -586,7 +586,9 @@ impl STRkitBAMReader {
         debug_logs: bool,
     ) -> PyResult<Self> {
         let mut rdr = IndexedReader::from_path(path)
-            .map_err(|_e| PyErr::new::<PyException, _>(format!("Could not load BAM from path: {}", path)))?;
+            .map_err(|e| PyErr::new::<PyException, _>(
+                format!("Could not load alignment file from path: {} (error: {})", path, e)
+            ))?;
 
         rdr.set_reference(ref_path).map_err(htslib_error_to_pyerr)?;
         // rdr.set_threads(4).map_err(htslib_error_to_pyerr)?; // TODO: parameterize
