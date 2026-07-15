@@ -3,6 +3,7 @@ use numpy::{PyArray1, PyArrayMethods};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use serde::{Deserialize, Serialize};
+use std::mem;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[pyclass(module = "strkit_rust_ext")]
@@ -28,6 +29,10 @@ impl STRkitAlignedCoords {
 
     fn query_coord_at_idx(&self, idx: usize) -> u64 {
         self.query_coords[idx]
+    }
+
+    pub fn swap(&mut self) {
+        mem::swap(&mut self.query_coords, &mut self.ref_coords);
     }
 
     // --- below are functions which make this class pickle-able ---

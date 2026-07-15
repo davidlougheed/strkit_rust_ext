@@ -59,7 +59,11 @@ pub fn get_aligned_pair_matches<'py>(
     cigar: &Bound<'py, PyArray2<u32>>,
     query_start: u64,
     ref_start: u64,
+    swap: bool,
 ) -> PyResult<Py<STRkitAlignedCoords>> {
-    let aligned_coords = get_aligned_pair_matches_rs(cigar, query_start, ref_start);
+    let mut aligned_coords = get_aligned_pair_matches_rs(cigar, query_start, ref_start);
+    if swap {
+        aligned_coords.swap();
+    }
     Py::new(py, aligned_coords)
 }
