@@ -48,6 +48,7 @@ pub struct STRkitLocus {
 
     #[pyo3(get)]
     pub flank_size: u64,
+    pub contig_size: u64, // TODO: remove when rust-only (needed only for pickling)
 
     #[pyo3(get)]
     pub annotations: Vec<String>,
@@ -67,6 +68,7 @@ impl STRkitLocus {
         motif: &str,
         n_alleles: usize,
         flank_size: u64,
+        contig_size: u64,
         annotations: Vec<String>,
     ) -> PyResult<Self> {
         let log_str = format!(
@@ -81,9 +83,11 @@ impl STRkitLocus {
                 contig: contig.to_string(),
 
                 left_coord,
-                left_flank_coord: left_coord - flank_size,
+                left_flank_coord: if flank_size <= left_coord { left_coord - flank_size } else { 0 },
                 right_coord,
-                right_flank_coord: right_coord + flank_size,
+                right_flank_coord: if contig_size - right_coord >= flank_size {
+                    right_coord + flank_size
+                } else { contig_size },
                 ref_size: right_coord - left_coord,
 
                 motif: motif.to_string(),
@@ -92,6 +96,7 @@ impl STRkitLocus {
                 n_alleles,
 
                 flank_size,
+                contig_size,
 
                 annotations,
 
@@ -125,7 +130,8 @@ impl STRkitLocus {
     fn __repr__(&self) -> String {
         let repr = format!(
             "<STRkitLocus t_idx={} locus_id={} contig={} left_coord={} left_flank_coord={} right_coord={} \
-            right_flank_coord={} ref_size={} motif={} motif_size={} n_alleles={} flank_size={} _log_str={}>",
+            right_flank_coord={} ref_size={} motif={} motif_size={} n_alleles={} flank_size={} contig_size={} \
+            _log_str={}>",
             &self.t_idx,
             &self.locus_id,
             &self.contig,
@@ -138,6 +144,7 @@ impl STRkitLocus {
             &self.motif_size,
             &self.n_alleles,
             &self.flank_size,
+            &self.contig_size,
             &self._log_str,
         );
         repr
@@ -185,7 +192,7 @@ impl STRkitLocus {
         Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 
-    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, u64, u64, String, usize, u64, Vec<String>)> {
+    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, u64, u64, String, usize, u64, u64, Vec<String>)> {
         Ok((
             self.t_idx,
             self.locus_id.clone(),
@@ -195,6 +202,7 @@ impl STRkitLocus {
             self.motif.clone(),
             self.n_alleles,
             self.flank_size,
+            self.contig_size,
             self.annotations.clone(),
         ))
     }
