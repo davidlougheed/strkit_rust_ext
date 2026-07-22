@@ -48,6 +48,7 @@ pub struct STRkitLocus {
 
     #[pyo3(get)]
     pub flank_size: u64,
+    #[pyo3(get)]
     pub contig_size: u64, // TODO: remove when rust-only (needed only for pickling)
 
     #[pyo3(get)]

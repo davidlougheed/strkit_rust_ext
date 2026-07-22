@@ -2,7 +2,7 @@ import pickle
 from io import BytesIO
 from strkit_rust_ext import STRkitLocus
 
-LOCUS0_ARGS = (1, "locus1", "chr1", 10000, 12000, "CAG", 2, 70, ["annot1"])
+LOCUS0_ARGS = (1, "locus1", "chr1", 10000, 12000, "CAG", 2, 70, 248387328, ["annot1"])
 
 
 def _assert_locus0_props_methods(locus: STRkitLocus):
@@ -15,6 +15,7 @@ def _assert_locus0_props_methods(locus: STRkitLocus):
     assert locus.right_coord == 12000
     assert locus.right_flank_coord == 12000 + 70
     assert locus.ref_size == 2000
+    assert locus.contig_size == 248387328
     assert locus.motif == "CAG"
     assert locus.motif_size == 3
     assert locus.n_alleles == 2
@@ -34,7 +35,8 @@ def _assert_locus0_props_methods(locus: STRkitLocus):
     }
     assert repr(locus) == (
         f"<STRkitLocus t_idx=1 locus_id=locus1 contig=chr1 left_coord=10000 left_flank_coord=9930 right_coord=12000 "
-        f"right_flank_coord=12070 ref_size=2000 motif=CAG motif_size=3 n_alleles=2 flank_size=70 _log_str={log_str}>"
+        f"right_flank_coord=12070 ref_size=2000 motif=CAG motif_size=3 n_alleles=2 flank_size=70 contig_size=248387328 "
+        f"_log_str={log_str}>"
     )
 
 
