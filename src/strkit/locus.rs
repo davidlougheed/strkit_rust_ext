@@ -83,12 +83,12 @@ impl STRkitLocus {
                 contig: contig.to_string(),
 
                 left_coord,
-                left_flank_coord: if flank_size <= left_coord { left_coord - flank_size } else { 0 },
+                left_flank_coord: left_coord.checked_sub(flank_size).unwrap_or(0),
                 right_coord,
                 right_flank_coord: if contig_size - right_coord >= flank_size {
                     right_coord + flank_size
                 } else { contig_size },
-                ref_size: right_coord - left_coord,
+                ref_size: right_coord.checked_sub(left_coord).expect("right_coord cannot be less than left_coord"),
 
                 motif: motif.to_string(),
                 motif_size: motif.len() as u16,
@@ -455,15 +455,17 @@ fn _get_read_coords_from_matched_pairs(
 
     let mut loop_start = if full_left_flank { lhs + 1 } else { 0 };
 
-    let (lhs_end, lhs_end_found) = aligned_coords.find_coord_idx_by_ref_pos(
-        locus_with_ref_data.left_coord_adj - 1,
-        loop_start,
-    );
-    if lhs_end_found {
-        left_flank_end = Some(aligned_coords.query_coords[lhs_end] + 1);
-        loop_start = lhs_end + 1;
-    } else {
-        // eprintln!("lhs_end q_coord={}, found={}", q_coords[lhs_end] + 1, lhs_end_found);
+    if locus_with_ref_data.left_coord_adj > 0 {
+        let (lhs_end, lhs_end_found) = aligned_coords.find_coord_idx_by_ref_pos(
+            locus_with_ref_data.left_coord_adj - 1,
+            loop_start,
+        );
+        if lhs_end_found {
+            left_flank_end = Some(aligned_coords.query_coords[lhs_end] + 1);
+            loop_start = lhs_end + 1;
+        } else {
+            // eprintln!("lhs_end q_coord={}, found={}", q_coords[lhs_end] + 1, lhs_end_found);
+        }
     }
 
     // Linear search for left flank end (if not found via binary search) and right flank start/end ---------------------
