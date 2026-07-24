@@ -43,6 +43,8 @@ pub struct CallPeaksData {
     // if consensus is enabled:
     pub seqs: Option<Vec<SeqAndConsensusMethod>>,
     pub start_anchor_seqs: Option<Vec<SeqAndConsensusMethod>>,
+    // if 5mCpG methylation is enabled:
+    pub am: Option<SmallVec<[f64; 2]>>,  // average methylation per peak
 }
 
 impl CallPeaksData {
@@ -63,6 +65,10 @@ impl CallPeaksData {
         };
         match &self.start_anchor_seqs {
             Some(start_anchor_seqs) => res.set_item("start_anchor_seqs", start_anchor_seqs)?,
+            None => {},
+        };
+        match &self.am {
+            Some(am) => res.set_item("am", am.as_slice())?,
             None => {},
         };
         Ok(res)
@@ -117,6 +123,7 @@ impl CallData {
                 kmers: None,
                 seqs: None,
                 start_anchor_seqs: None,
+                am: None,
             },
             assign_method: None,
             ps: None,
@@ -160,6 +167,8 @@ impl CallData {
         self.assign_method.as_ref().map_or("none", |am| am.as_str())
     }
 
+    // --- Peak data setters ---
+
     fn set_n_reads<'py>(&mut self, n_reads: Bound<'py, PyArray1<u16>>) {
         self.peaks.n_reads = Some(bound_pyarray_to_smallvec2(n_reads));
     }
@@ -172,6 +181,12 @@ impl CallData {
         self.peaks.seqs = Some(seqs);
         self.peaks.start_anchor_seqs = Some(start_anchor_seqs);
     }
+
+    fn set_am<'py>(&mut self, am: Bound<'py, PyArray1<f64>>) {
+        self.peaks.am = Some(bound_pyarray_to_smallvec2(am));
+    }
+
+    // ---
 
     fn set_assign_method(&mut self, assign_method: AssignMethod) {
         self.assign_method = Some(assign_method);
@@ -224,6 +239,7 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> PyResult<Call
     let mut kmers: Option<Vec<HashMap<String, u16>>> = None;
     let mut seqs: Option<Vec<SeqAndConsensusMethod>> = None;
     let mut start_anchor_seqs: Option<Vec<SeqAndConsensusMethod>> = None;
+    let mut am: Option<SmallVec<[f64; 2]>> = None;
 
     for cd in &calls {
         let call_data = cd.borrow();
@@ -267,6 +283,12 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> PyResult<Call
                 None => start_anchor_seqs = Some(sas.clone()),
             }
         }
+        if let Some(am_) = &call_data.peaks.am {
+            match &mut am {
+                Some(am_inner) => am_inner.extend_from_slice(am_),
+                None => am = Some(am_.clone()),
+            }
+        }
     }
 
     let wsum = weights.iter().sum::<f64>();
@@ -288,6 +310,7 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> PyResult<Call
             kmers,
             seqs,
             start_anchor_seqs,
+            am,
         },
         assign_method,
         ps: None,
