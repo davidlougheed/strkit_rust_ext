@@ -48,6 +48,18 @@ pub struct CallPeaksData {
 }
 
 impl CallPeaksData {
+    /// Reverses all peak data as part of a phasing fix-up process.
+    pub fn reverse(&mut self) {
+        self.means.reverse();
+        self.weights.reverse();
+        self.stdevs.reverse();
+        if let Some(ref mut n_reads) = self.n_reads { n_reads.reverse(); }
+        if let Some(ref mut kmers) = self.kmers { kmers.reverse(); }
+        if let Some(ref mut seqs) = self.seqs { seqs.reverse(); }
+        if let Some(ref mut start_anchor_seqs) = self.start_anchor_seqs { start_anchor_seqs.reverse(); }
+        if let Some(ref mut am) = self.am { am.reverse(); }
+    }
+
     pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let res = PyDict::new(py);
         res.set_item("means", self.means.as_slice())?;
@@ -196,20 +208,14 @@ impl CallData {
         self.ps = Some(ps);
     }
 
-    /// Reverses all peak data as part of a phasing fix-up process.
+    /// Reverses all call and peak data as part of a phasing fix-up process.
     fn reverse(&mut self) {
         // call
         self.call.reverse();
         self.call_95_cis.reverse();
         self.call_99_cis.reverse();
         // peaks
-        self.peaks.means.reverse();
-        self.peaks.weights.reverse();
-        self.peaks.stdevs.reverse();
-        if let Some(ref mut n_reads) = self.peaks.n_reads { n_reads.reverse(); }
-        if let Some(ref mut kmers) = self.peaks.kmers { kmers.reverse(); }
-        if let Some(ref mut seqs) = self.peaks.seqs { seqs.reverse(); }
-        if let Some(ref mut start_anchor_seqs) = self.peaks.start_anchor_seqs { start_anchor_seqs.reverse(); }
+        self.peaks.reverse();
     }
 
     pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
