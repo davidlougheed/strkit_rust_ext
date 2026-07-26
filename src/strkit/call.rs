@@ -10,7 +10,7 @@ use smallvec::{SmallVec, ToSmallVec};
 pub type SeqAndConsensusMethod = (String, String); // TODO: enum for consensus method
 
 /// Read-allele assignment method: how reads were assigned to particular alleles
-#[pyclass(eq, eq_int, from_py_object)]
+#[pyclass(eq, eq_int, from_py_object, module = "strkit_rust_ext")]
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum AssignMethod {
     Dist = 0, // Slight misnomer, should be GMM
@@ -33,7 +33,7 @@ impl AssignMethod {
     }
 }
 
-#[pyclass(from_py_object)]
+#[pyclass(from_py_object, module = "strkit_rust_ext")]
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub struct PeakMethylation {
     pub am: f64,  // average methylation level
@@ -109,7 +109,7 @@ impl CallPeaksData {
 }
 
 #[derive(Deserialize, Serialize)]
-#[pyclass]
+#[pyclass(module = "strkit_rust_ext")]
 pub struct CallData {
     pub call: SmallVec<[i32; 2]>,
     pub call_95_cis: SmallVec<[(i32, i32); 2]>,
