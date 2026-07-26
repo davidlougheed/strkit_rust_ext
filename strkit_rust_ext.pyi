@@ -317,7 +317,9 @@ class STRkitAlignedSegment:
         vcf_anchor_size: int,
     ) -> str: ...
 
-    def get_methylation_prop(self, locus_with_ref_data: STRkitLocusWithRefData, alpha: float) -> Optional[float]: ...
+    def get_methylation_prop(
+        self, locus_with_ref_data: STRkitLocusWithRefData, prob: int, alpha: float
+    ) -> Optional[tuple[float, float]]: ...
 
 
 class STRkitLocusSegmentsIter:

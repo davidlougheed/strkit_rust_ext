@@ -333,25 +333,29 @@ impl STRkitAlignedSegment {
         Ok(String::new())
     }
 
-    /// If we have MM/ML tags and >0 Cs, will return the proportion of methylated Cs (optionally stabilized with an
-    /// alpha-value). Otherwise, will return None.
-    pub fn get_methylation_prop(&self, locus_with_ref_data: &STRkitLocusWithRefData, alpha: f64) -> Option<f64> {
+    /// If we have MM/ML tags and >0 Cs, will return the (proportion, count) of methylated Cs using the u8-represented
+    /// probability threshold and optionally stabilized with an alpha-value. Otherwise, will return None.
+    pub fn get_methylation_prop(
+        &self, locus_with_ref_data: &STRkitLocusWithRefData, prob: u8, alpha: f64
+    ) -> Option<(f64, u32)> {
+
         match &self.methylation {
             Some(mmi) => {
                 if mmi.tree.len() == 0 {
                     None
                 } else {
-                    let mut m: f64 = 0.0;
+                    let mut m: u32 = 0;
                     let overlap = mmi.tree.find(
                         locus_with_ref_data.left_coord_adj, locus_with_ref_data.right_coord_adj + 1
                     );
                     for intrvl in overlap {
-                        if intrvl.val >= 127 {
-                            m += 1.0;
+                        if intrvl.val >= prob {
+                            m += 1;
                         }
                     }
-                    let u = mmi.tree.len() as f64 - m;
-                    Some(m / (m + u + alpha))
+                    let mf = m as f64;
+                    let u = mmi.tree.len() as f64 - mf;
+                    Some((mf / (mf + u + alpha), m))
                 }
             },
             None => None,
