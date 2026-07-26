@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use ndarray::Axis;
 use numpy::{PyArray, PyArray1, PyArray2, PyArrayMethods};
 use pyo3::{exceptions::PyException, prelude::*, types::PyDict};
-use smallvec::SmallVec;
+use smallvec::{SmallVec, ToSmallVec};
 
 pub type SeqAndConsensusMethod = (String, String); // TODO: enum for consensus method
 
@@ -31,6 +31,21 @@ impl AssignMethod {
     }
 }
 
+#[pyclass(from_py_object)]
+#[derive(Clone, Copy)]
+pub struct PeakMethylation {
+    pub am: f64,  // average methylation level
+    pub amc: f64,  // average number of methylated sites
+}
+
+#[pymethods]
+impl PeakMethylation {
+    #[new]
+    fn py_new<'py>(am: f64, amc: f64) -> PyResult<Self> {
+        Ok(PeakMethylation { am, amc })
+    }
+}
+
 pub struct CallPeaksData {
     pub means: SmallVec<[f64; 2]>,
     pub weights: SmallVec<[f64; 2]>,
@@ -44,7 +59,7 @@ pub struct CallPeaksData {
     pub seqs: Option<Vec<SeqAndConsensusMethod>>,
     pub start_anchor_seqs: Option<Vec<SeqAndConsensusMethod>>,
     // if 5mCpG methylation is enabled:
-    pub am: Option<SmallVec<[f64; 2]>>,  // average methylation per peak
+    pub methylation: Option<SmallVec<[PeakMethylation; 2]>>,  // average methylation per peak
 }
 
 impl CallPeaksData {
@@ -57,7 +72,7 @@ impl CallPeaksData {
         if let Some(ref mut kmers) = self.kmers { kmers.reverse(); }
         if let Some(ref mut seqs) = self.seqs { seqs.reverse(); }
         if let Some(ref mut start_anchor_seqs) = self.start_anchor_seqs { start_anchor_seqs.reverse(); }
-        if let Some(ref mut am) = self.am { am.reverse(); }
+        if let Some(ref mut m) = self.methylation { m.reverse(); }
     }
 
     pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
@@ -79,8 +94,11 @@ impl CallPeaksData {
             Some(start_anchor_seqs) => res.set_item("start_anchor_seqs", start_anchor_seqs)?,
             None => {},
         };
-        match &self.am {
-            Some(am) => res.set_item("am", am.as_slice())?,
+        match &self.methylation {
+            Some(m) => {
+                res.set_item("am", m.iter().map(|pm| pm.am).collect::<Vec<f64>>())?;
+                res.set_item("amc", m.iter().map(|pm| pm.amc).collect::<Vec<f64>>())?;
+            },
             None => {},
         };
         Ok(res)
@@ -135,7 +153,7 @@ impl CallData {
                 kmers: None,
                 seqs: None,
                 start_anchor_seqs: None,
-                am: None,
+                methylation: None,
             },
             assign_method: None,
             ps: None,
@@ -194,8 +212,8 @@ impl CallData {
         self.peaks.start_anchor_seqs = Some(start_anchor_seqs);
     }
 
-    fn set_am<'py>(&mut self, am: Bound<'py, PyArray1<f64>>) {
-        self.peaks.am = Some(bound_pyarray_to_smallvec2(am));
+    fn set_methylation<'py>(&mut self, methylation: Vec<PeakMethylation>) {
+        self.peaks.methylation = Some(methylation.to_smallvec());
     }
 
     // ---
@@ -245,7 +263,7 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> PyResult<Call
     let mut kmers: Option<Vec<HashMap<String, u16>>> = None;
     let mut seqs: Option<Vec<SeqAndConsensusMethod>> = None;
     let mut start_anchor_seqs: Option<Vec<SeqAndConsensusMethod>> = None;
-    let mut am: Option<SmallVec<[f64; 2]>> = None;
+    let mut methylation: Option<SmallVec<[PeakMethylation; 2]>> = None;
 
     for cd in &calls {
         let call_data = cd.borrow();
@@ -289,10 +307,10 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> PyResult<Call
                 None => start_anchor_seqs = Some(sas.clone()),
             }
         }
-        if let Some(am_) = &call_data.peaks.am {
-            match &mut am {
-                Some(am_inner) => am_inner.extend_from_slice(am_),
-                None => am = Some(am_.clone()),
+        if let Some(methyl_) = &call_data.peaks.methylation {
+            match &mut methylation {
+                Some(methyl_inner) => methyl_inner.extend_from_slice(methyl_),
+                None => methylation = Some(methyl_.clone()),
             }
         }
     }
@@ -316,7 +334,7 @@ pub fn combine_call_data<'py>(calls: Vec<Bound<'py, CallData>>) -> PyResult<Call
             kmers,
             seqs,
             start_anchor_seqs,
-            am,
+            methylation,
         },
         assign_method,
         ps: None,
