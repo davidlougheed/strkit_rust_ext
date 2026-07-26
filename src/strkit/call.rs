@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
+use bincode;
 use ndarray::Axis;
 use numpy::{PyArray, PyArray1, PyArray2, PyArrayMethods};
-use pyo3::{exceptions::PyException, prelude::*, types::PyDict};
+use pyo3::{exceptions::PyException, prelude::*, types::{PyBytes, PyDict}};
+use serde::{Deserialize, Serialize};
 use smallvec::{SmallVec, ToSmallVec};
 
 pub type SeqAndConsensusMethod = (String, String); // TODO: enum for consensus method
 
 /// Read-allele assignment method: how reads were assigned to particular alleles
 #[pyclass(eq, eq_int, from_py_object)]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum AssignMethod {
     Dist = 0, // Slight misnomer, should be GMM
     SNV = 1, // Using flanking SNVs
@@ -32,7 +34,7 @@ impl AssignMethod {
 }
 
 #[pyclass(from_py_object)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 pub struct PeakMethylation {
     pub am: f64,  // average methylation level
     pub amc: f64,  // average number of methylated sites
@@ -46,6 +48,7 @@ impl PeakMethylation {
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct CallPeaksData {
     pub means: SmallVec<[f64; 2]>,
     pub weights: SmallVec<[f64; 2]>,
@@ -105,6 +108,7 @@ impl CallPeaksData {
     }
 }
 
+#[derive(Deserialize, Serialize)]
 #[pyclass]
 pub struct CallData {
     pub call: SmallVec<[i32; 2]>,
@@ -245,6 +249,19 @@ impl CallData {
         res.set_item("assign_method", self.assign_method.as_ref().map(|am| am.as_str()))?;
         res.set_item("ps", self.ps)?;
         Ok(res)
+    }
+
+    // --- below are functions which make this class pickle-able ---
+
+    pub fn __setstate__(&mut self, state: Bound<'_, PyBytes>) -> PyResult<()> {
+        // TODO: replace unwrap with actual PyResult error
+        (*self, _) = bincode::serde::decode_from_slice(state.as_bytes(), bincode::config::standard()).unwrap();
+        Ok(())
+    }
+
+    pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        // TODO: replace unwrap with actual PyResult error
+        Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 }
 
