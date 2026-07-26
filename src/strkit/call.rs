@@ -176,6 +176,12 @@ impl CallData {
     }
 
     #[getter]
+    fn call_99_cis<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<i32>>> {
+        let vec2: Vec<Vec<i32>> = self.call_99_cis.iter().map(|i| vec![i.0, i.1]).collect();
+        PyArray2::from_vec2(py, &vec2).map_err(|e| PyException::new_err(e.to_string()))
+    }
+
+    #[getter]
     fn peak_means<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
         PyArray1::from_iter(py, self.peaks.means.iter().map(|&i| i))
     }
@@ -262,6 +268,26 @@ impl CallData {
     pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         // TODO: replace unwrap with actual PyResult error
         Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
+    }
+
+    pub fn __getnewargs__<'py>(&self, py: Python<'py>) -> PyResult<(
+        Bound<'py, PyArray1<i32>>,
+        Bound<'py, PyArray2<i32>>,
+        Bound<'py, PyArray2<i32>>,
+        Bound<'py, PyArray1<f64>>,
+        Bound<'py, PyArray1<f64>>,
+        Bound<'py, PyArray1<f64>>,
+        u8,
+    )> {
+        Ok((
+            self.call(py),
+            self.call_95_cis(py)?,
+            self.call_99_cis(py)?,
+            self.peak_means(py),
+            self.peak_weights(py),
+            self.peak_stdevs(py),
+            self.peak_modal_n(),
+        ))
     }
 }
 
