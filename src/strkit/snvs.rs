@@ -1,7 +1,6 @@
 use bytecount;
 use pyo3::exceptions::PyException;
 use pyo3::exceptions::PyValueError;
-use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyBytes, PyDict, PyString};
@@ -643,7 +642,7 @@ fn find_base_at_pos(
 pub fn calculate_useful_snvs(
     py: Python<'_>,
     block_segments: &STRkitLocusBlockSegments,
-    read_dict_extra: Bound<'_, PyDict>,
+    read_snv_bases: Bound<'_, PyDict>,
     read_locus_alignment_data: &Bound<'_, PyDict>,
     read_snvs: RapidHashMap<String, RapidHashMap<RefCoord, (char, u8)>>,
     locus_snvs: RapidHashSet<RefCoord>,
@@ -651,7 +650,7 @@ pub fn calculate_useful_snvs(
 ) -> Result<Vec<(usize, RefCoord)>, PyErr> {
     // Mutates read_dict_extra - adds snv_bases keys to read entries
 
-    let n_reads = read_dict_extra.len();
+    let n_reads = read_locus_alignment_data.len();
 
     let mut sorted_snvs: Vec<RefCoord> = locus_snvs.into_iter().collect();
     sorted_snvs.sort();
@@ -662,7 +661,7 @@ pub fn calculate_useful_snvs(
             .map(|&s| (s, RapidHashMap::default()))
             .collect();
 
-    for rn in read_dict_extra.keys().into_iter().map(|x| x.cast_into::<PyString>().unwrap()) {
+    for rn in read_locus_alignment_data.keys().into_iter().map(|x| x.cast_into::<PyString>().unwrap()) {
         let rn_str = rn.to_str()?;
 
         let Some(snvs) = read_snvs.get(rn_str) else {
@@ -723,10 +722,7 @@ pub fn calculate_useful_snvs(
             (base, qual)
         }).collect();
 
-        let read_dict_extra_for_read = read_dict_extra.get_item(&rn)?.unwrap().cast_into::<PyDict>()?;
-
-        // TODO: set snv_bases as tuple
-        read_dict_extra_for_read.set_item(intern!(py, "snv_bases"), snv_list)?;
+        read_snv_bases.set_item(rn, PyTuple::new(py, snv_list)?)?;
     }
 
     // Enough reads to try for SNV based separation

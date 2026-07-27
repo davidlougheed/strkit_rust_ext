@@ -210,7 +210,7 @@ def process_read_snvs_for_locus_and_calculate_useful_snvs(
     left_most_coord: int,
     ref_cache: str,
     # ---
-    read_dict_extra: dict[str, dict],
+    read_snv_bases: dict[str, tuple[tuple[str, int], ...]],
     read_aligned_coords: dict[str, STRkitSegmentAlignmentDataForLocus],
     candidate_snvs: CandidateSNVs,
     min_allele_reads: int,

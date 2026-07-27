@@ -596,7 +596,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     locus_with_ref_data: &STRkitLocusWithRefData,
     left_most_coord: RefCoord,
     ref_cache: &str,
-    read_dict_extra: Bound<PyDict>,
+    read_snv_bases: Bound<PyDict>,
     read_locus_alignment_data: &Bound<PyDict>,
     candidate_snvs: &Bound<'_, CandidateSNVs>,
     min_allele_reads: usize,
@@ -629,7 +629,7 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
 
     let candidate_snvs_b = candidate_snvs.borrow();
 
-    for rn in read_dict_extra.keys().into_iter().map(|x| x.cast_into::<PyString>().unwrap()) {
+    for rn in read_locus_alignment_data.keys().into_iter().map(|x| x.cast_into::<PyString>().unwrap()) {
         let segment = block_segments.get_segment_by_name(rn.as_borrowed().to_str()?).unwrap().borrow(py);
 
         if segment.sig_clip_left || segment.sig_clip_right {
@@ -693,6 +693,6 @@ pub fn process_read_snvs_for_locus_and_calculate_useful_snvs(
     // --------------------------------------------------------------------------------------------
 
     calculate_useful_snvs(
-        py, block_segments, read_dict_extra, read_locus_alignment_data, read_snvs, locus_snvs, min_allele_reads
+        py, block_segments, read_snv_bases, read_locus_alignment_data, read_snvs, locus_snvs, min_allele_reads
     )
 }
