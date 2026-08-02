@@ -729,7 +729,7 @@ impl STRkitBAMReader {
                     // -------------------------------------------------------------------------------------------------
 
                     let methylation = if self.use_methyl {
-                        Some(build_modified_bases_tree(&record))
+                        Some(build_modified_bases_tree(&record, &query_sequence))
                     } else {
                         None
                     };

@@ -8,7 +8,7 @@ pub struct BaseModifications {
 }
 
 /// TODO:
-pub fn build_modified_bases_tree(record: &Record) -> BaseModifications {
+pub fn build_modified_bases_tree(record: &Record, query_sequence: &str) -> BaseModifications {
     let mut intervals: Vec<Interval<QueryCoord, u8>> = Vec::new();
 
     if let Ok(mods) = record.basemods_iter() {
