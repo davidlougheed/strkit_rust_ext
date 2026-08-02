@@ -396,7 +396,7 @@ pub struct STRkitLocusSegments {
     segments: Arc<Vec<Py<STRkitAlignedSegment>>>,
     #[pyo3(get)]
     n_segments: usize,
-    read_lengths: Vec<usize>,
+    sorted_read_lengths: Vec<usize>,
     chimeric_read_status: RapidHashMap<String, u8>,
     #[pyo3(get)]
     left_most_coord: u64,
@@ -404,13 +404,41 @@ pub struct STRkitLocusSegments {
     right_most_coord: u64,
 }
 
+impl STRkitLocusSegments {
+    fn get_read_length_partition_mean(&self, tr_len_with_flank: usize) -> Option<f64> {
+        let p_idx = self.sorted_read_lengths.partition_point(|&x| x < tr_len_with_flank);
+        (p_idx < self.sorted_read_lengths.len()).then(|| {
+            self.sorted_read_lengths[p_idx..].iter().sum::<usize>() as f64
+                / (self.sorted_read_lengths.len() - p_idx) as f64
+        })
+    }
+}
+
 #[pymethods]
 impl STRkitLocusSegments {
     #[getter]
-    fn sorted_read_lengths<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<usize>> {
-        let mut sorted_read_lengths = self.read_lengths.clone();
-        sorted_read_lengths.sort_unstable();
-        sorted_read_lengths.to_pyarray(py)
+    fn sorted_read_lengths<'py>(&mut self, py: Python<'py>) -> Bound<'py, PyArray1<usize>> {
+        self.sorted_read_lengths.to_pyarray(py)
+    }
+
+    /// Returns read weight (in the context of all reads for the locus) according to TR length based on how likely we
+    /// are to capture the whole sequence. If None, it means something went wrong and the TR length was longer than the
+    /// longest read length (which shouldn't ever happen in practice.)
+    fn get_read_weight(&self, targeted: bool, segment_length: usize, tr_len_with_flank: usize) -> Option<f64> {
+        // TODO: refactor and maybe move to another struct when we unify data structures
+
+        // TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
+
+        let mean_containing_size = if targeted {
+            Some(segment_length as f64)
+        } else {
+            self.get_read_length_partition_mean(tr_len_with_flank)
+        };
+
+        mean_containing_size.map(|mcs| {
+            let trwf = tr_len_with_flank as f64;
+            (mcs + trwf - 2.0) / (mcs - trwf + 1.0)
+        })
     }
 
     fn get_chimeric_read_status(&self, rn: &str) -> Option<u8> {
@@ -534,10 +562,12 @@ impl STRkitLocusBlockSegments {
 
         let n_segments = segments.len();
 
+        read_lengths.sort_unstable();
+
         Py::new(py, STRkitLocusSegments {
             segments: Arc::new(segments),
             n_segments,
-            read_lengths,
+            sorted_read_lengths: read_lengths,
             chimeric_read_status,
             left_most_coord,
             right_most_coord,
