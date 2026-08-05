@@ -343,6 +343,8 @@ class STRkitLocusBlockSegments:
     left_most_coord: int
     right_most_coord: int
 
+    def __len__(self) -> int: ...
+
     def get_segments_for_locus(
         self,
         locus: STRkitLocus,

@@ -481,6 +481,10 @@ impl STRkitLocusBlockSegments {
 
 #[pymethods]
 impl STRkitLocusBlockSegments {
+    fn __len__(&self) -> usize {
+        self.segments.len()
+    }
+
     fn get_segments_for_locus<'py>(
         &mut self,
         py: Python<'py>,
