@@ -779,6 +779,18 @@ impl STRkitBAMReader {
             }
         }
 
+        if self.debug_logs {  // Keep debug log level check in Rust to avoid needless Python call
+            self.logger.call_method1(
+                py,
+                intern!(py, "debug"),
+                (
+                    intern!(py, "%s - loaded %d overlapping block segments"),
+                    &locus_block.log_str,
+                    segments.len(),
+                ),
+            )?;
+        }
+
         Py::new(py, STRkitLocusBlockSegments {
             left_most_coord,
             right_most_coord,
