@@ -733,7 +733,13 @@ impl STRkitBAMReader {
                     // -------------------------------------------------------------------------------------------------
 
                     let methylation = if self.use_methyl {
-                        Some(build_modified_bases_tree(&record, &query_sequence))
+                        Some(build_modified_bases_tree(&record, |m_pos, m_base| {
+                            let m_pos_usize = m_pos as usize;
+                            // methylated C + is a CpG
+                            m_base == 'm'
+                            && m_pos_usize < query_sequence.len() - 1
+                            && &query_sequence[m_pos_usize..m_pos_usize+2] == "CG"
+                        }))
                     } else {
                         None
                     };

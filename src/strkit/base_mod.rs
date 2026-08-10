@@ -8,17 +8,19 @@ pub struct BaseModifications {
 }
 
 /// TODO:
-pub fn build_modified_bases_tree(record: &Record, query_sequence: &str) -> BaseModifications {
+pub fn build_modified_bases_tree(record: &Record, filter: impl Fn(QueryCoord, char) -> bool) -> BaseModifications {
     let mut intervals: Vec<Interval<QueryCoord, u8>> = Vec::new();
 
     if let Ok(mods) = record.basemods_iter() {
         for res in mods {
             if let Ok((position, m)) = res {
-                if m.modified_base as u8 as char == 'm' {
+                let pos = position as QueryCoord;
+                let mod_base = m.modified_base as u8 as char;
+                if filter(pos, mod_base) {
                     intervals.push(
                         Interval {
-                            start: position as QueryCoord,
-                            stop: (position + 1) as QueryCoord,
+                            start: pos,
+                            stop: (pos + 1),
                             val: m.qual as u8,
                         }
                     );
