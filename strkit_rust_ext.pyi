@@ -1,8 +1,10 @@
-import numpy
+from collections.abc import Sequence
 from enum import Enum
 from logging import Logger
+from typing import Literal, Self
+
+import numpy
 from numpy.typing import NDArray
-from typing import Literal, Optional, Self, Sequence
 
 # aligned_coords
 
@@ -10,7 +12,7 @@ class STRkitAlignedCoords:
     query_coords: list[int]
     ref_coords: list[int]
 
-    def __init__(self, query_coords: NDArray[numpy.uint64], ref_coords: NDArray[numpy.uint64]) -> Self: ...
+    def __init__(self, query_coords: NDArray[numpy.uint64], ref_coords: NDArray[numpy.uint64]): ...
 
     def __len__(self) -> int: ...
 
@@ -58,7 +60,7 @@ class CallData:
         weights: NDArray[numpy.float64],
         stdevs: NDArray[numpy.float64],
         modal_n: int,
-    ) -> Self:
+    ):
         ...
 
     def get_peaks_dict(self) -> dict: ...
@@ -85,7 +87,7 @@ def consensus_seq(
     logger: Logger,
     max_mdn_poa_length: int,
     poa_impl: Literal["spoa", "rust-bio"],
-) -> Optional[tuple[str, Literal["single", "poa", "best_rep"]]]: ...
+) -> tuple[str, Literal["single", "poa", "best_rep"]] | None: ...
 
 # exceptions
 
@@ -144,7 +146,7 @@ class STRkitLocus:
         ref_right_flank_seq: str,
         ref_total_seq: str,
         ref_time: float,
-    ) -> "STRkitLocusWithRefData":
+    ) -> STRkitLocusWithRefData:
         ...
 
 
@@ -180,25 +182,23 @@ class STRkitLocusBlock:
 
 
 class LocusReadCoords:
-    left_flank_start: Optional[int]
-    left_flank_end: Optional[int]
-    right_flank_start: Optional[int]
-    right_flank_end: Optional[int]
+    left_flank_start: int | None
+    left_flank_end: int | None
+    right_flank_start: int | None
+    right_flank_end: int | None
     full_left_flank: bool
     full_right_flank: bool
 
     @staticmethod
-    def new_all_incomplete() -> Self: ...
+    def new_all_incomplete() -> LocusReadCoords: ...
 
     def is_incomplete(self) -> bool: ...
-
-    def __repr__(self) -> str: ...
 
 
 def get_read_coords_from_matched_pairs(
     locus_with_ref_data: STRkitLocusWithRefData,
     segment: STRkitAlignedSegment,
-    aligned_coords: Optional[STRkitAlignedCoords],
+    aligned_coords: STRkitAlignedCoords | None,
     vcf_anchor_size: int,
     allow_only_one_full_flank: bool,
 ) -> LocusReadCoords: ...
@@ -224,13 +224,13 @@ def process_read_snvs_for_locus_and_calculate_useful_snvs(
 # snvs
 
 class CandidateSNVs:
-    def get(self, pos: int) -> Optional[dict]: ...
-    def get_snv_id(self, pos: int) -> Optional[str]: ...
-    def get_snv_ref_base(self, pos: int) -> Optional[str]: ...
+    def get(self, pos: int) -> dict | None: ...
+    def get_snv_id(self, pos: int) -> str | None: ...
+    def get_snv_ref_base(self, pos: int) -> str | None: ...
 
 
 class STRkitVCFReader:
-    def __init__(self, path: str, is_sample_vcf: bool, sample_id: Optional[str]): ...
+    def __init__(self, path: str, is_sample_vcf: bool, sample_id: str | None): ...
 
     def get_candidate_snvs(self, locus_block: STRkitLocusBlock) -> CandidateSNVs: ...
 
@@ -239,12 +239,11 @@ class CalledSNV:
     call: tuple[str, ...]
     rcs: tuple[int, ...]
     dp: int
-    ref_base: Optional[str]
+    ref_base: str | None
 
-    def __init__(self, id: str, pos: int, call: tuple[str, ...], rcs: tuple[int, ...], ref_base: Optional[str]): ...
-    def __repr__(self) -> str: ...
+    def __init__(self, id: str, pos: int, call: tuple[str, ...], rcs: tuple[int, ...], ref_base: str | None): ...
 
-    def reverse(): ...
+    def reverse(self): ...
 
 
 def shannon_entropy(
@@ -296,9 +295,9 @@ class STRkitAlignedSegment:
     query_sequence: str
     query_qualities: NDArray[numpy.uint8]
     aligned_coords: STRkitAlignedCoords
-    hp: Optional[int]
-    ps: Optional[int]
-    ps_remapped: Optional[int]
+    hp: int | None
+    ps: int | None
+    ps_remapped: int | None
 
     def soft_clip_overlaps_locus(self, locus: STRkitLocus) -> bool: ...
 
@@ -319,7 +318,7 @@ class STRkitAlignedSegment:
 
     def get_methylation_prop(
         self, locus_with_ref_data: STRkitLocusWithRefData, prob: int, alpha: float
-    ) -> Optional[tuple[float, float]]: ...
+    ) -> tuple[float, float] | None: ...
 
 
 class STRkitLocusSegmentsIter:
@@ -336,7 +335,7 @@ class STRkitLocusSegments:
     def __iter__(self) -> STRkitLocusSegmentsIter: ...
 
     def get_chimeric_read_status(self, rn: str) -> int: ...
-    def get_read_weight(self, targeted: bool, segment_length: int, tr_len_with_flank: int) -> Optional[float]: ...
+    def get_read_weight(self, targeted: bool, segment_length: int, tr_len_with_flank: int) -> float | None: ...
 
 
 class STRkitLocusBlockSegments:
