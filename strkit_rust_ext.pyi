@@ -111,6 +111,7 @@ class STRkitLocus:
     motif: str
     motif_size: int
 
+    contig_size: int | None
     n_alleles: int
 
     flank_size: int
