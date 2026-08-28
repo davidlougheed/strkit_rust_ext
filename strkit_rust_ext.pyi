@@ -127,7 +127,7 @@ class STRkitLocus:
         motif: str,
         n_alleles: int,
         flank_size: int,
-        contig_size: int,
+        contig_size: int | None,
         annotations: list[str],
     ): ...
 

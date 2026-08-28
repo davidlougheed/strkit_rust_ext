@@ -49,7 +49,7 @@ pub struct STRkitLocus {
     #[pyo3(get)]
     pub flank_size: u64,
     #[pyo3(get)]
-    pub contig_size: u64, // TODO: remove when rust-only (needed only for pickling)
+    pub contig_size: Option<u64>, // TODO: remove when rust-only (needed only for pickling)
 
     #[pyo3(get)]
     pub annotations: Vec<String>,
@@ -69,12 +69,18 @@ impl STRkitLocus {
         motif: &str,
         n_alleles: usize,
         flank_size: u64,
-        contig_size: u64,
+        contig_size: Option<u64>,
         annotations: Vec<String>,
     ) -> PyResult<Self> {
         let log_str = format!(
             "locus {} (id={}): {}:{}-{} [{}]", t_idx, locus_id, contig, left_coord, right_coord, motif
         );
+
+        let right_flank_coord = if let Some(csiz) = contig_size && csiz - right_coord < flank_size {
+            csiz
+        } else {
+            right_coord + flank_size
+        };
 
         Ok(
             STRkitLocus {
@@ -86,9 +92,7 @@ impl STRkitLocus {
                 left_coord,
                 left_flank_coord: left_coord.checked_sub(flank_size).unwrap_or(0),
                 right_coord,
-                right_flank_coord: if contig_size - right_coord >= flank_size {
-                    right_coord + flank_size
-                } else { contig_size },
+                right_flank_coord,
                 ref_size: right_coord.checked_sub(left_coord).expect("right_coord cannot be less than left_coord"),
 
                 motif: motif.to_string(),
