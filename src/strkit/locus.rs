@@ -135,7 +135,7 @@ impl STRkitLocus {
     fn __repr__(&self) -> String {
         let repr = format!(
             "<STRkitLocus t_idx={} locus_id={} contig={} left_coord={} left_flank_coord={} right_coord={} \
-            right_flank_coord={} ref_size={} motif={} motif_size={} n_alleles={} flank_size={} contig_size={} \
+            right_flank_coord={} ref_size={} motif={} motif_size={} n_alleles={} flank_size={} contig_size={:?} \
             _log_str={}>",
             &self.t_idx,
             &self.locus_id,
@@ -197,7 +197,7 @@ impl STRkitLocus {
         Ok(PyBytes::new(py, &bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()))
     }
 
-    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, u64, u64, String, usize, u64, u64, Vec<String>)> {
+    pub fn __getnewargs__(&self) -> PyResult<(usize, String, String, u64, u64, String, usize, u64, Option<u64>, Vec<String>)> {
         Ok((
             self.t_idx,
             self.locus_id.clone(),
