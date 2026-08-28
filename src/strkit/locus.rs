@@ -141,7 +141,7 @@ impl STRkitLocus {
 
         let repr = format!(
             "<STRkitLocus t_idx={} locus_id={} contig={} left_coord={} left_flank_coord={} right_coord={} \
-            right_flank_coord={} ref_size={} motif={} motif_size={} n_alleles={} flank_size={} contig_size={:?} \
+            right_flank_coord={} ref_size={} motif={} motif_size={} n_alleles={} flank_size={} contig_size={} \
             _log_str={}>",
             &self.t_idx,
             &self.locus_id,
