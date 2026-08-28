@@ -133,6 +133,12 @@ impl STRkitLocus {
     }
 
     fn __repr__(&self) -> String {
+        let contig_size = if let Some(csiz) = self.contig_size {
+            csiz.to_string()
+        } else {
+            "None".to_string()
+        };
+
         let repr = format!(
             "<STRkitLocus t_idx={} locus_id={} contig={} left_coord={} left_flank_coord={} right_coord={} \
             right_flank_coord={} ref_size={} motif={} motif_size={} n_alleles={} flank_size={} contig_size={:?} \
@@ -149,7 +155,7 @@ impl STRkitLocus {
             &self.motif_size,
             &self.n_alleles,
             &self.flank_size,
-            &self.contig_size,
+            contig_size,
             &self._log_str,
         );
         repr
