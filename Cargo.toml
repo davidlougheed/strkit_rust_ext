@@ -11,6 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 bio = "=2.2.0"
+cc = "=1.4.2"  # pinned for parasail compilation bug on macOS
 numpy = "0.29"
 ndarray = "0.17"
 # extension-module is needed:
