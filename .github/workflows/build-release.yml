@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -89,7 +89,7 @@ jobs:
               export BINDGEN_EXTRA_CLANG_ARGS="-Wno-error"
             fi
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
         with:
           name: wheels-linux-${{ matrix.target }}
@@ -118,7 +118,7 @@ jobs:
   #         before-script-linux: |
   #           sudo apt-get update -y && sudo apt-get install -y g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64
   #     - name: Upload wheels
-  #       uses: actions/upload-artifact@v4
+  #       uses: actions/upload-artifact@v7
   #       with:
   #         name: wheels-windows-${{ matrix.target }}
   #         path: dist
@@ -176,7 +176,7 @@ jobs:
 
   #         maturin build --release --verbose --jobs 2 --out dist
   #     - name: Upload wheels
-  #       uses: actions/upload-artifact@v4
+  #       uses: actions/upload-artifact@v7
   #       with:
   #         name: wheels-windows-w64
   #         path: dist
@@ -196,7 +196,7 @@ jobs:
           args: --release --verbose --jobs 2 --out dist -i python3.11 -i python3.12 -i python3.13 -i python3.14
           # sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
         with:
           name: wheels-macos-${{ matrix.target }}
@@ -214,7 +214,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
         with:
           name: wheels-sdist
@@ -227,7 +227,7 @@ jobs:
     if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
     needs: [test, linux, macos, sdist] # windows,
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: wheels
           pattern: wheels-*
