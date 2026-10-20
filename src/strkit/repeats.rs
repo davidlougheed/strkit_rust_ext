@@ -242,9 +242,10 @@ pub fn get_repeat_count_compostr(tr_seq: &str, motif: &str) -> PyResult<(usize, 
 
     let ms = MotifSet::new_from_strs(&[motif]);
     let decomp = MotifSequenceDecomposer::new(
-        ms, 4, -4, INDEL_PENALTY, Some(-1)
+        ms, 4, -4, INDEL_PENALTY, false, Some(-1)
     ).map_err(|e| PyException::new_err(e.to_string()))?;
     let tr_seq_bytes = tr_seq.as_bytes();
     let res = decomp.decompose(tr_seq_bytes).map_err(|e| PyException::new_err(e.to_string()))?;
+    // eprintln!("{}", res.alignment_string(&tr_seq_bytes));
     Ok((res.copies, res.score))
 }
